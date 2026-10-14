@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light}body{margin:0}</style></head><body>
+<title>Vega Deflection Market Making</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one centred column; Practise is a two-pane desk (board left, ticket right) that stacks on narrow screens. */
+:root{
+  --bg:#f2f5f7; --surface:#ffffff; --ink:#16202b; --muted:#5a6876; --line:#d4dbe2;
+  --accent:#0b6b8a; --accent-ink:#ffffff; --soft:#e1eef3;
+  --bid:#1c7a4c; --ask:#b03646; --warn:#9a6200; --warn-soft:#fbf1dc;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,"Courier New",monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f151b; --surface:#172029; --ink:#e3e9ef; --muted:#909dac; --line:#2b3743;
+  --accent:#4fb6d6; --accent-ink:#06222c; --soft:#1a2f3a;
+  --bid:#5fc48f; --ask:#ee7f8b; --warn:#e2ad4a; --warn-soft:#2e2715; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0f151b; --surface:#172029; --ink:#e3e9ef; --muted:#909dac; --line:#2b3743;
+  --accent:#4fb6d6; --accent-ink:#06222c; --soft:#1a2f3a;
+  --bid:#5fc48f; --ask:#ee7f8b; --warn:#e2ad4a; --warn-soft:#2e2715; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55}
+.wrap{width:100%;max-width:1360px;min-height:100vh;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 56px;display:flex;flex-direction:column;gap:20px}
+main{width:100%}
+h1{font-size:22px;font-weight:600;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h2{font-size:17px;font-weight:600;margin:0;text-wrap:balance}
+h3{font-size:14px;font-weight:600;margin:0}
+p{margin:0}
+.num,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500}
+.muted{color:var(--muted)}
+
+header.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:4px}
+.hdr-right{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.fs{padding:5px 12px;font-size:13px;margin-bottom:4px}
+.fsmsg{font-size:12px;color:var(--muted)}
+.tab{font:inherit;font-weight:500;background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:8px 12px;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Explanation */
+.prose{display:flex;flex-direction:column;gap:28px;max-width:70ch;margin-inline:auto}
+.prose section{display:flex;flex-direction:column;gap:10px}
+.prose ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.formula{font-family:var(--mono);font-size:14px;background:var(--surface);border:1px solid var(--line);padding:10px 14px;overflow-x:auto;white-space:nowrap}
+.fig{background:var(--surface);border:1px solid var(--line);padding:8px;overflow-x:auto}
+.fig svg{display:block;min-width:480px;width:100%;height:auto}
+.fig text{font-family:var(--mono);font-size:12px;fill:var(--ink)}
+.fig .ax{stroke:var(--line);stroke-width:1;fill:none}
+.fig .cap{fill:var(--muted);font-family:var(--sans)}
+.fig .b{fill:var(--bid)} .fig .a{fill:var(--ask)} .fig .f{fill:var(--ink)}
+.fig .span{stroke:var(--muted);stroke-width:2;fill:none}
+.fig .arrow{stroke:var(--accent);stroke-width:1.5;fill:none}
+.fig .arrowt{fill:var(--accent)}
+table.ex{border-collapse:collapse;font-size:14px}
+table.ex th,table.ex td{padding:5px 12px;border-bottom:1px solid var(--line);text-align:right}
+table.ex th:first-child,table.ex td:first-child{text-align:left}
+table.ex th{font-weight:500;color:var(--muted);font-size:12px}
+.scroll{overflow-x:auto}
+
+/* Practise */
+.panel{background:var(--surface);border:1px solid var(--line);padding:18px}
+.setup{display:flex;flex-direction:column;gap:18px;max-width:620px;margin-inline:auto}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field small{color:var(--muted);font-size:12px;line-height:1.4}
+input[type=text],input[type=number]{font-family:var(--mono);font-size:16px;padding:8px 10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%;border-radius:2px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.check{display:flex;gap:10px;align-items:flex-start}
+.check input{margin-top:4px;accent-color:var(--accent);width:16px;height:16px}
+.btn{font:inherit;font-weight:500;padding:9px 18px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer;border-radius:2px}
+.btn.ghost{background:none;color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.err{color:var(--ask);font-size:13px;min-height:1.4em}
+
+.desk{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:780px){.desk{grid-template-columns:minmax(0,1fr)}}
+.facts{display:flex;flex-wrap:wrap;gap:8px 22px}
+.facts .sep{width:1px;background:var(--line);align-self:stretch}
+.fact.strong .label{color:var(--ink);font-weight:600}
+.fact.strong .num{font-size:24px;font-weight:600;color:var(--accent);line-height:1.2}
+.field.bold input{font-size:22px;font-weight:600;color:var(--accent)}
+.field.bold .label{color:var(--ink);font-weight:600}
+.setup-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.fact{display:flex;flex-direction:column}
+.fact .num{font-size:17px;font-weight:500}
+.boardwrap{display:flex;flex-direction:column;gap:14px;min-width:0}
+table.board{width:100%;border-collapse:collapse;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:15px}
+table.board th{font-family:var(--sans);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500;padding:6px 10px;text-align:right;border-bottom:1px solid var(--line)}
+table.board td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line)}
+table.board th.k,table.board td.k{text-align:center;font-weight:600}
+table.board td.k{background:var(--bg)}
+table.board tr.atm td{background:var(--soft)}
+table.board td.g{color:var(--accent);font-weight:500}
+
+.ticket{display:flex;flex-direction:column;gap:14px;min-width:0}
+.progress{display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:space-between;align-items:baseline}
+.pips{display:flex;flex-wrap:wrap;gap:3px}
+.pip{width:9px;height:9px;background:var(--line);border-radius:1px}
+.pip.p3{background:var(--bid)} .pip.p2{background:var(--accent)} .pip.p1{background:var(--warn)} .pip.p0{background:var(--ask)}
+.pip.now{outline:1px solid var(--ink);outline-offset:1px}
+.kind{display:inline-block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;padding:2px 8px;border:1px solid var(--accent);color:var(--accent);border-radius:2px}
+.note{font-size:13px;color:var(--warn);background:var(--warn-soft);padding:6px 10px}
+.ask-text{font-size:17px;line-height:1.45}
+.ask-text b{font-weight:600}
+.legs{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.inputs{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.inputs .field{flex:1 1 110px}
+.inputs .at{padding-bottom:10px;color:var(--muted)}
+.lbl-bid{color:var(--bid)} .lbl-ask{color:var(--ask)}
+.tries{display:flex;gap:5px;align-items:center}
+.try{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.try.used{background:var(--line)}
+.feedback{min-height:1.5em;font-size:14px}
+.feedback.bad{color:var(--ask)} .feedback.good{color:var(--bid)}
+.rowend{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.settings-line{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;justify-content:space-between}
+
+.overlay{position:fixed;inset:0;background:rgba(8,14,20,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.dialog{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-top:3px solid var(--ask);max-width:480px;width:100%;padding:20px;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow:auto}
+.settings-line b{color:var(--ink);font-weight:600}
+.dialog .ans{font-family:var(--mono);font-size:22px;font-weight:600}
+.dialog .work{font-family:var(--mono);font-size:13px;display:flex;flex-direction:column;gap:3px;color:var(--muted);overflow-x:auto;white-space:nowrap}
+.dialog .volnow{background:var(--soft);padding:10px 12px}
+.dialog .volnow .num{font-size:18px;font-weight:600}
+.summary{display:flex;flex-direction:column;gap:14px}
+.big{font-family:var(--mono);font-size:34px;font-weight:600;line-height:1.1}
+@media (prefers-reduced-motion:no-preference){.shake{animation:shake .25s}}
+@keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Vega Deflection Market Making</h1>
+    <div class="hdr-right">
+    <span class="fsmsg" id="fsMsg" role="status"></span>
+    <button class="btn ghost fs" type="button" id="fsBtn">Full screen</button>
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-explain" aria-controls="explain" aria-selected="true">Explanation</button>
+      <button class="tab" role="tab" id="tab-practise" aria-controls="practise" aria-selected="false">Practise</button>
+    </div>
+    </div>
+  </header>
+
+  <!-- ============ EXPLANATION ============ -->
+  <main id="explain" role="tabpanel" aria-labelledby="tab-explain">
+    <div class="prose">
+      <section>
+        <h2>The idea</h2>
+        <p>A deflection market maker holds no opinion on what volatility should be. We quote around the mid, collect edge from customers, and let their trades push our fair value around. Every fill deflects our volatility fair in the direction the customer traded, for two reasons: an aggressor is a market signal, and we will give up a little edge to avoid carrying a large absolute vega position.</p>
+        <p>The board is a single expiry with seven strikes, the fourth at the money. Black&ndash;Scholes gives each call and put a theoretical value and each strike a vega, written &nu;: the change in option price for a one point (1%) move in volatility. There is no skew, so the call and put on a strike share one &nu;.</p>
+      </section>
+
+      <section>
+        <h2>Input 1: how much vega we show for one &nu; of edge</h2>
+        <p>The first input, <b>Q</b>, is the position vega per fill per instrument vega. I call it the <b>quote depth</b>. It is the amount of vega we are willing to trade when the edge we charge equals one &nu; of the instrument. Edge and size scale together: twice the vega costs twice the edge.</p>
+        <div class="formula">edge in vegas = lots &times; &nu; / Q &nbsp;&nbsp;&nbsp; edge in price = lots &times; &nu;&sup2; / Q</div>
+        <p>Futures are at 100. The 100 calls are worth 10.00 with &nu; = 0.50, and Q = 15.</p>
+        <ul>
+          <li>30 lots carry 30 &times; 0.50 = 15 vega. That is one &nu; of edge, so the market is <span class="num">9.50 at 10.50</span>, 30 up.</li>
+          <li>60 lots carry 30 vega. That is two &nu; of edge, so the market is <span class="num">9.00 at 11.00</span>, 60 up.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Input 2: how much vega moves our vol by one point</h2>
+        <p>The second input, <b>D</b>, is the position vega per vol point bump per instrument vega. I call it the <b>deflection depth</b>. When a customer takes D vega from us, we move our volatility fair by one full point: up if they bought vega, down if they sold it. Every fair on the board then moves by its own &nu; times that bump.</p>
+        <div class="formula">&Delta;&sigma; = &plusmn; lots &times; &nu; / D &nbsp;&nbsp;&nbsp; new fair = old fair + &Delta;&sigma; &times; &nu;</div>
+        <p>With D = 25, suppose we are lifted on the 30 lot offer at 10.50. The customer bought 15 vega, so our vol goes up 15 / 25 = 0.60 points. The call's fair becomes 10.00 + 0.60 &times; 0.50 = 10.30 and the next one-&nu; market is <span class="num">9.80 at 10.80</span>, 30 up.</p>
+        <div class="fig">
+          <svg viewBox="0 0 600 316" role="img" aria-label="Price on the vertical axis, time on the horizontal axis. Before being lifted the market is 9.50 bid, 10.00 fair, 10.50 offer. After, it is 9.80, 10.30, 10.80.">
+            <!-- vertical scale: y = 250 - (price - 9.25) * 111.11 ; columns: Before x=220, After x=440 -->
+            <line class="ax" x1="70" y1="40" x2="70" y2="258"/>
+            <line class="ax" x1="70" y1="258" x2="580" y2="258"/>
+            <text class="cap" x="70" y="26" text-anchor="middle">price</text>
+            <line class="ax" x1="64" y1="222.2" x2="70" y2="222.2"/><text class="cap" x="58" y="226.2" text-anchor="end">9.50</text>
+            <line class="ax" x1="64" y1="166.7" x2="70" y2="166.7"/><text class="cap" x="58" y="170.7" text-anchor="end">10.00</text>
+            <line class="ax" x1="64" y1="111.1" x2="70" y2="111.1"/><text class="cap" x="58" y="115.1" text-anchor="end">10.50</text>
+            <line class="ax" x1="64" y1="55.6" x2="70" y2="55.6"/><text class="cap" x="58" y="59.6" text-anchor="end">11.00</text>
+
+            <line class="span" x1="220" y1="111.1" x2="220" y2="222.2"/>
+            <circle class="a" cx="220" cy="111.1" r="6"/><circle class="f" cx="220" cy="166.7" r="5"/><circle class="b" cx="220" cy="222.2" r="6"/>
+            <text x="208" y="115.1" text-anchor="end">10.50</text><text x="208" y="170.7" text-anchor="end">10.00</text><text x="208" y="226.2" text-anchor="end">9.50</text>
+
+            <path class="arrow" d="M227.9 165.5 L421.2 136.2"/><path class="arrowt" d="M430.1 134.8 L421.9 140.6 L420.5 131.7 Z"/>
+            <text class="cap" x="330" y="108" text-anchor="middle">lifted</text>
+            <text class="cap" x="330" y="124" text-anchor="middle">+0.60 vol &times; 0.50 &nu;</text>
+
+            <line class="span" x1="440" y1="77.8" x2="440" y2="188.9"/>
+            <circle class="a" cx="440" cy="77.8" r="6"/><circle class="f" cx="440" cy="133.3" r="5"/><circle class="b" cx="440" cy="188.9" r="6"/>
+            <text x="452" y="81.8">10.80</text><text x="452" y="137.3">10.30</text><text x="452" y="192.9">9.80</text>
+
+            <text class="cap" x="220" y="278" text-anchor="middle">Before</text>
+            <text class="cap" x="440" y="278" text-anchor="middle">After</text>
+            <text class="cap" x="580" y="278" text-anchor="end">time &rarr;</text>
+
+            <text class="cap" x="70" y="308">offer</text><circle class="a" cx="108" cy="304" r="4"/>
+            <text class="cap" x="128" y="308">fair</text><circle class="f" cx="158" cy="304" r="4"/>
+            <text class="cap" x="178" y="308">bid</text><circle class="b" cx="206" cy="304" r="4"/>
+          </svg>
+        </div>
+        <p>Had we been lifted on the 60 lot offer at 11.00 instead, the customer would hold 30 vega, our vol would rise 30 / 25 = 1.20 points and the fair would be 10.00 + 1.20 &times; 0.50 = 10.60.</p>
+      </section>
+
+      <section>
+        <h2>Why D must be larger than Q</h2>
+        <p>A fill at k vegas of edge is a position of k &times; Q vega, which moves our fair k &times; Q / D vegas toward the trade price. The edge we keep against our own new fair is</p>
+        <div class="formula">retained edge = k &times; (1 &minus; Q / D) vegas</div>
+        <p>In the example we sold at 10.50 and our new fair is 10.30, so we keep 0.20, which is 0.4 &nu; = 1 &minus; 15/25. If D were not larger than Q, the fair would jump through the trade price and we would regret every trade the moment it printed.</p>
+      </section>
+
+      <section>
+        <h2>Spreads</h2>
+        <p>A spread is priced as one instrument. Its fair is the signed sum of its legs' fairs and its &nu; is the signed sum of its legs' vegas. Then the same two formulas apply.</p>
+        <div class="scroll"><table class="ex">
+          <thead><tr><th>Instrument</th><th>Legs (what the buyer gets)</th><th>Net &nu;</th></tr></thead>
+          <tbody>
+            <tr><td>Straddle</td><td>+1 call, +1 put, same strike</td><td>large, positive</td></tr>
+            <tr><td>Strangle</td><td>+1 lower put, +1 higher call</td><td>large, positive</td></tr>
+            <tr><td>Call spread</td><td>+1 lower call, &minus;1 higher call</td><td>small, either sign</td></tr>
+            <tr><td>Put spread</td><td>+1 higher put, &minus;1 lower put</td><td>small, either sign</td></tr>
+            <tr><td>Butterfly</td><td>+1, &minus;2, +1 at equal spacing</td><td>usually negative near the money</td></tr>
+            <tr><td>Condor</td><td>+1, &minus;1, &minus;1, +1</td><td>usually negative near the money</td></tr>
+            <tr><td>Ladder</td><td>+1, &minus;1, &minus;1 moving away from the first strike</td><td>usually negative</td></tr>
+          </tbody>
+        </table></div>
+        <p>Watch the sign. A customer who buys an instrument with negative &nu; has sold vega, so our vol goes <em>down</em>. The formula handles it: &Delta;&sigma; = +lots &times; &nu; / D when they buy and &minus;lots &times; &nu; / D when they sell, with &nu; carrying its own sign. Edge uses &nu;&sup2;, so it is always positive.</p>
+      </section>
+
+      <section>
+        <h2>The OEV view</h2>
+        <p>Option equivalent vega rescales every option's vega by the vega of the ATM straddle, so the ATM straddle is 1.00 and the ATM call and put are 0.50 each. The OEV view lists each strike's OEV and one true number, the ATM straddle's &nu;. To recover a vega, multiply.</p>
+        <div class="formula">OEV = &nu; / &nu;<sub>ATM straddle</sub> &nbsp;&nbsp;&nbsp; &nu; = OEV &times; &nu;<sub>ATM straddle</sub></div>
+        <p>With one expiry and one volatility, gamma and vega are proportional across strikes, so dividing gammas by the ATM straddle's gamma gives the same OEV numbers.</p>
+      </section>
+
+      <section>
+        <h2>How Practise scores you</h2>
+        <ul>
+          <li>You are given the board once, at the starting implied volatility. It never updates. Tracking your vol fair and your fairs is your job.</li>
+          <li>A <b>market</b> step names an instrument and a size. Enter the bid and offer: fair &plusmn; lots &times; &nu;&sup2; / Q, to the nearest 0.01 tick.</li>
+          <li>A <b>sizing</b> step has a customer offering to trade at a price, for example &ldquo;sell the 90/110 strangle at 3.00&rdquo;. Enter how many lots you will trade. If the price gives you no edge against your own fair, the answer is 0. Otherwise the answer is the most lots your edge pays for, lots = edge &times; Q / &nu;&sup2;, rounded down to whole lots. Sizing answers are not forced onto the 0.05 vol grid, because the customer's price is a 0.01 tick.</li>
+          <li>A <b>trade</b> step tells you the customer hit or lifted your full size. Enter your new vol fair, to 0.01 of a vol point. Sometimes the customer passes and nothing changes.</li>
+          <li>A <b>vol check</b> step asks for your current vol fair. The first step of every game is one.</li>
+          <li>Each step allows three attempts and pays 3, 2 or 1 points by attempt, or 0. After a miss you are shown the answer and your current vol fair; close the box and it is gone.</li>
+          <li>Sizes are always between 0.5 &nu; and 2 &nu; of edge, and in whole lots that move your vol by a multiple of 0.05 points. Implied vol runs from 15% to 80%. Vegas on the board are rounded to the nearest 0.05. In OEV view the OEVs are rounded to 0.01 from the true vegas and the ATM straddle &nu; is rounded to a multiple of 0.05, so sizes move your vol by a multiple of 0.01 instead.</li>
+          <li>Conventions: fairs move linearly, fair = board value + (vol fair &minus; starting vol) &times; &nu;. Use the board's rounded values and vegas exactly as shown. Vol fair is carried at two decimals after each trade. In OEV view, &nu; = OEV &times; ATM straddle &nu; using the displayed numbers.</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  <!-- ============ PRACTISE ============ -->
+  <main id="practise" role="tabpanel" aria-labelledby="tab-practise" hidden>
+    <form class="panel setup" id="setup" novalidate>
+      <h2>New game</h2>
+      <div class="fields">
+        <div class="field bold">
+          <label class="label" for="inQ">Q &middot; quote depth</label>
+          <input type="number" id="inQ" value="15" min="1" step="1" inputmode="decimal">
+          <small>Position &nu; per fill per instrument &nu;: vega you trade for one &nu; of edge.</small>
+        </div>
+        <div class="field bold">
+          <label class="label" for="inD">D &middot; deflection depth</label>
+          <input type="number" id="inD" value="25" min="1" step="1" inputmode="decimal">
+          <small>Position &nu; per vol point bump per instrument &nu;. Must be larger than Q.</small>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="inSteps">Steps: <span class="num" id="stepsOut">30</span></label>
+        <input type="range" id="inSteps" min="10" max="100" step="1" value="30">
+      </div>
+      <label class="check" for="inOev">
+        <input type="checkbox" id="inOev">
+        <span><b>OEV view</b><br><small class="muted">Show each strike's option equivalent vega and only the ATM straddle's true &nu;. Fixed for the whole game.</small></span>
+      </label>
+      <small class="muted">Q is a random multiple of 5 from 10 to 50. D is a random multiple of 5 from 1.2 Q to 2.5 Q. Edit either box to choose your own.</small>
+      <div class="err" id="setupErr" role="alert"></div>
+      <div class="setup-actions"><button class="btn" type="submit" id="startBtn">Start</button><button class="btn ghost" type="button" id="rerollBtn">Re-roll Q and D</button></div>
+    </form>
+
+    <div id="game" hidden>
+      <div class="desk">
+        <div class="boardwrap">
+          <div class="panel">
+            <div class="facts" id="facts"></div>
+          </div>
+          <div class="panel scroll">
+            <table class="board" id="board"></table>
+          </div>
+          <p class="muted" style="font-size:13px">Board values are at the starting implied volatility and do not update.</p>
+        </div>
+        <div class="ticket">
+          <div class="panel" style="display:flex;flex-direction:column;gap:10px">
+            <div class="progress">
+              <span><span class="label">Step</span> <span class="num" id="stepNo"></span></span>
+              <span><span class="label">Score</span> <span class="num" id="score"></span></span>
+            </div>
+            <div class="pips" id="pips" aria-hidden="true"></div>
+          </div>
+          <div class="panel" id="card"></div>
+          <div class="settings-line">
+            <span id="settingsLine"></span>
+            <button class="btn ghost" type="button" id="quitBtn">New game</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <h2 id="dlgTitle">Out of attempts</h2>
+    <div id="dlgBody" style="display:flex;flex-direction:column;gap:14px"></div>
+    <div><button class="btn" type="button" id="dlgClose">Close and continue</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const EPS = 1e-9;
+const r2 = x => (Math.round((x + (x>=0?1:-1)*1e-9) * 100) / 100) + 0;
+const f2 = x => r2(x).toFixed(2);
+const num = x => String(parseFloat(x.toFixed(4))).replace('-', '−');
+const pn = x => x < 0 ? '(' + num(x) + ')' : num(x); // negative operands in worked lines
+const rnd = n => Math.floor(Math.random() * n);
+const pick = a => a[rnd(a.length)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- tabs ---------- */
+function showTab(name){
+  for (const t of ['explain','practise']){
+    $(t).hidden = t !== name;
+    $('tab-'+t).setAttribute('aria-selected', String(t === name));
+  }
+  try { history.replaceState(null, '', '#' + name); } catch(e){}
+}
+$('tab-explain').onclick = () => showTab('explain');
+$('tab-practise').onclick = () => showTab('practise');
+if (location.hash === '#practise') showTab('practise');
+
+/* ---------- full screen ---------- */
+(function(){
+  const btn = $('fsBtn'), msg = $('fsMsg'), de = document.documentElement;
+  const req = de.requestFullscreen || de.webkitRequestFullscreen;
+  const cur = () => document.fullscreenElement || document.webkitFullscreenElement;
+  if (!req){ btn.hidden = true; return; }
+  const label = () => { btn.textContent = cur() ? 'Exit full screen' : 'Full screen'; };
+  btn.onclick = () => {
+    msg.textContent = '';
+    try {
+      const p = cur() ? (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+                      : req.call(de);
+      if (p && p.catch) p.catch(() => { msg.textContent = 'Full screen is not available in this view.'; });
+    } catch (e) { msg.textContent = 'Full screen is not available in this view.'; }
+  };
+  document.addEventListener('fullscreenchange', label);
+  document.addEventListener('webkitfullscreenchange', label);
+})();
+
+/* ---------- Black (futures, r = 0) ---------- */
+function ncdf(x){
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989422804014327 * Math.exp(-x * x / 2);
+  const p = d * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  return x >= 0 ? 1 - p : p;
+}
+function black(F, K, sig, T){
+  const s = sig * Math.sqrt(T);
+  const d1 = (Math.log(F / K) + 0.5 * s * s) / s, d2 = d1 - s;
+  const c = F * ncdf(d1) - K * ncdf(d2);
+  const vega = F * 0.3989422804014327 * Math.exp(-d1 * d1 / 2) * Math.sqrt(T) / 100; // per vol point
+  return { c, p: c - F + K, vega };
+}
+
+/* ---------- game state ---------- */
+let G = null;
+
+const r05 = x => Math.round(Math.round(x / 0.05) * 0.05 * 100) / 100;
+function buildBoard(oev){
+  let F, days, vol0, T, sig;
+  // Vega view needs long expiries so rounding to 0.05 still leaves a usable board.
+  // OEV view only needs the ATM straddle vega to survive its own rounding, so it keeps the shorter expiries.
+  const dayList = oev ? [30, 45, 60, 90, 120, 180, 270, 365] : [90, 120, 180, 270, 365, 540, 730];
+  do {
+    F = pick([100, 100, 150, 200]);
+    days = pick(dayList);
+    vol0 = 15 + rnd(66);                       // 15% to 80%
+    T = days / 365; sig = vol0 / 100;
+  } while (sig * Math.sqrt(T) > 0.9 || 2 * black(F, F, sig, T).vega < (oev ? 0.2 : 0.5));
+  const target = 0.5 * F * sig * Math.sqrt(T);
+  const nice = [1, 2, 2.5, 5, 10, 15, 20, 25, 30, 40, 50].filter(n => n <= 0.3 * F);
+  let dK = nice[0];
+  for (const n of nice) if (Math.abs(n - target) < Math.abs(dK - target)) dK = n;
+  const K = [], c = [], p = [], vt = [];
+  for (let i = 0; i < 7; i++){
+    const k = F + (i - 3) * dK, bl = black(F, k, sig, T);
+    K.push(k); c.push(r2(bl.c)); p.push(r2(bl.p)); vt.push(bl.vega);
+  }
+  let v, shown, nuS;
+  if (oev){
+    // true vegas first, then the OEVs rounded to 0.01, then the ATM straddle vega rounded to a multiple of 0.05
+    const nuT = 2 * vt[3];
+    nuS = r05(nuT);
+    shown = vt.map(x => r2(x / nuT));
+    v = shown.map(o => Math.round(o * nuS * 1e6) / 1e6);
+  } else {
+    shown = vt.map(r05);
+    v = shown.slice();
+    nuS = r2(2 * v[3]);
+  }
+  return { F, days, vol0, K, c, p, v, shown, nuS };
+}
+
+function legStr(legs){
+  return legs.map(l => (l.w > 0 ? '+' : '−') + Math.abs(l.w) + ' ' + G.K[l.i] + l.t).join(', ');
+}
+function mk(name, legs){
+  let tv = 0, nu = 0;
+  for (const l of legs){ tv += l.w * (l.t === 'C' ? G.c[l.i] : G.p[l.i]); nu += l.w * G.v[l.i]; }
+  nu = Math.round(nu * 1e6) / 1e6;
+  return { name, legs, tv, nu };
+}
+function randomInstrument(){
+  const K = G.K;
+  const kind = pick(['straddle','straddle','straddle','straddle','straddle','straddle','straddle',
+    'strangle','strangle','strangle','strangle','strangle','strangle',
+    'call','call','put','put','cs','cs','ps','ps','fly','condor','ladder']);
+  const cp = Math.random() < 0.5 ? 'C' : 'P', word = cp === 'C' ? 'call' : 'put';
+  if (kind === 'straddle'){
+    const i = Math.random() < 0.6 ? 3 : rnd(7);
+    return mk(K[i] + ' straddle', [{t:'C',i,w:1},{t:'P',i,w:1}]);
+  }
+  if (kind === 'strangle'){
+    let i, j;
+    if (Math.random() < 0.75){ const d = 1 + rnd(3); i = 3 - d; j = 3 + d; }
+    else { i = rnd(6); j = i + 1 + rnd(6 - i); }
+    return mk(K[i] + '/' + K[j] + ' strangle', [{t:'P',i,w:1},{t:'C',i:j,w:1}]);
+  }
+  if (kind === 'call'){ const i = rnd(7); return mk(K[i] + ' call', [{t:'C',i,w:1}]); }
+  if (kind === 'put'){ const i = rnd(7); return mk(K[i] + ' put', [{t:'P',i,w:1}]); }
+  if (kind === 'cs' || kind === 'ps'){
+    const i = rnd(6), j = i + 1 + rnd(Math.min(3, 6 - i));
+    return kind === 'cs'
+      ? mk(K[i] + '/' + K[j] + ' call spread', [{t:'C',i,w:1},{t:'C',i:j,w:-1}])
+      : mk(K[j] + '/' + K[i] + ' put spread', [{t:'P',i:j,w:1},{t:'P',i,w:-1}]);
+  }
+  if (kind === 'fly'){
+    const b = 1 + rnd(5), w = 1 + rnd(Math.min(b, 6 - b));
+    return mk(K[b-w] + '/' + K[b] + '/' + K[b+w] + ' ' + word + ' butterfly',
+      [{t:cp,i:b-w,w:1},{t:cp,i:b,w:-2},{t:cp,i:b+w,w:1}]);
+  }
+  if (kind === 'condor'){
+    const w = 1 + rnd(2), g = 1 + rnd(w === 1 ? 3 : 1), a = rnd(7 - (2*w + g));
+    const b = a + w, c = b + g, d = c + w;
+    return mk(K[a] + '/' + K[b] + '/' + K[c] + '/' + K[d] + ' ' + word + ' condor',
+      [{t:cp,i:a,w:1},{t:cp,i:b,w:-1},{t:cp,i:c,w:-1},{t:cp,i:d,w:1}]);
+  }
+  // ladder: buy one, sell two further out
+  const a = rnd(5), b = a + 1 + rnd(5 - a), c = b + 1 + rnd(6 - b);
+  return cp === 'C'
+    ? mk(K[a] + '/' + K[b] + '/' + K[c] + ' call ladder', [{t:'C',i:a,w:1},{t:'C',i:b,w:-1},{t:'C',i:c,w:-1}])
+    : mk(K[6-a] + '/' + K[6-b] + '/' + K[6-c] + ' put ladder', [{t:'P',i:6-a,w:1},{t:'P',i:6-b,w:-1},{t:'P',i:6-c,w:-1}]);
+}
+function niceSize(raw){
+  const step = raw < 10 ? 1 : raw < 50 ? 5 : raw < 200 ? 10 : raw < 1000 ? 50 : 100;
+  return Math.max(step, Math.round(raw / step) * step);
+}
+const fairOf = inst => inst.tv + (G.vol - G.vol0) * inst.nu;
+function quote(inst, q){
+  const fair = fairOf(inst), edge = q * inst.nu * inst.nu / G.Q;
+  return { fair, edge, bid: fair - edge, ask: fair + edge };
+}
+
+/* Sizing rules.
+   Edge must be between 0.5 and 2 vega: lots * nu / Q in [0.5, 2].
+   A fill must move the vol by a multiple of 0.05 (0.01 in OEV view, where vegas are derived from rounded OEVs). */
+function volGrid(){ return G.oev ? 0.01 : 0.05; }
+function onGrid(inst, lots){
+  const x = lots * Math.abs(inst.nu) / G.D / volGrid();
+  return Math.abs(x - Math.round(x)) < 1e-6;
+}
+function sizeStep(inst){            // smallest lot count that moves the vol by a grid multiple
+  for (let L = 1; L <= 20 * G.D; L++) if (onGrid(inst, L)) return L;
+  return null;
+}
+function sizeRange(inst){           // grid sizes inside the 0.5 to 2 vega edge window
+  const nu = Math.abs(inst.nu), out = [];
+  if (nu < 0.05 - 1e-9) return out;
+  const lo = Math.max(1, Math.ceil(0.5 * G.Q / nu - 1e-9)), hi = Math.floor(2 * G.Q / nu + 1e-9);
+  for (let L = lo; L <= hi; L++) if (onGrid(inst, L)) out.push(L);
+  return out;
+}
+function pickSize(list){            // prefer round numbers when the window offers them
+  for (const t of [10, 5, 2]){
+    const sub = list.filter(L => L % t === 0);
+    if (sub.length) return pick(sub);
+  }
+  return pick(list);
+}
+function newMarket(){
+  for (let n = 0; n < 400; n++){
+    const inst = randomInstrument();
+    const list = sizeRange(inst);
+    if (!list.length) continue;
+    const q = pickSize(list);
+    const m = quote(inst, q);
+    if (m.bid < 0.01 || r2(m.ask) - r2(m.bid) < 0.02) continue;
+    return { kind:'market', inst, q, ...m };
+  }
+  const inst = mk(G.K[3] + ' straddle', [{t:'C',i:3,w:1},{t:'P',i:3,w:1}]);
+  const q = niceSize(G.Q / inst.nu);
+  return { kind:'market', inst, q, ...quote(inst, q) };
+}
+const tickDown = x => Math.floor(x * 100 + 1e-7) / 100;
+const tickUp = x => Math.ceil(x * 100 - 1e-7) / 100;
+function newSizing(){
+  for (let n = 0; n < 400; n++){
+    const inst = randomInstrument();
+    const list = sizeRange(inst);
+    if (!list.length) continue;
+    const nu = Math.abs(inst.nu), fair = fairOf(inst);
+    const custSells = Math.random() < 0.5;       // customer sells: we buy at px. Customer buys: we sell at px.
+    let px, ans, lots = 0;
+    if (Math.random() < 0.2){
+      // no edge: price is at or through our fair
+      const e = pick([0, 0.5, 1, 1.5]) * nu;
+      px = custSells ? tickUp(fair + e) : tickDown(fair - e);
+      if (custSells ? px < fair : px > fair) continue;
+      ans = 0;
+    } else {
+      lots = pickSize(list);
+      const edge = lots * nu * nu / G.Q;
+      px = custSells ? tickDown(fair - edge) : tickUp(fair + edge);
+      const e = custSells ? fair - px : px - fair;
+      const raw = e * G.Q / (nu * nu);
+      ans = Math.floor(raw + 1e-9);                   // most whole lots the edge pays for
+      // keep the numbers easy: the answer sits just above a round size and stays inside 0.5 to 2 vega of edge
+      if (e < edge - 1e-9 || ans < lots || ans - lots > Math.max(2, 0.05 * lots) || ans * nu / G.Q > 2 + 1e-9) continue;
+    }
+    if (px < 0.01) continue;
+    const e = custSells ? fair - px : px - fair;
+    return { kind:'size', inst, side: custSells ? 'sell' : 'buy', px, fair, edge: e, answer: ans };
+  }
+  return newMarket();
+}
+
+function start(cfg){
+  G = { Q: cfg.Q, D: cfg.D, oev: cfg.oev, N: cfg.N, step: 0, points: [], kinds: [], pending: null, passed: false, note: '' };
+  Object.assign(G, buildBoard(cfg.oev));
+  G.vol = G.vol0;
+  $('setup').hidden = true; $('game').hidden = false;
+  renderBoard();
+  nextStep();
+}
+
+function nextStep(){
+  G.step++;
+  G.tries = 0;
+  if (G.step > G.N){ G.cur = null; renderDone(); return; }
+  if (G.step === 1){
+    G.cur = { kind:'vol', opener:true, answer: G.vol };
+  } else if (G.pending){
+    const t = G.pending; G.pending = null;
+    const delta = (t.side === 'buy' ? 1 : -1) * t.q * t.inst.nu / G.D;
+    G.cur = { kind:'trade', ...t, delta, answer: G.vol + delta };
+  } else if (G.passed && Math.random() < 0.25){
+    G.cur = { kind:'vol', answer: G.vol };
+  } else {
+    G.cur = Math.random() < 0.3 ? newSizing() : newMarket();
+  }
+  G.passed = false;
+  renderCard();
+}
+
+/* called once a step is settled (passed or failed) */
+function settle(pts, userVol){
+  const c = G.cur;
+  G.points.push(pts); G.kinds.push(c.kind);
+  G.note = '';
+  if (c.kind === 'trade'){
+    // carry vol at two decimals; a correct entry is adopted so half-tick ties never drift
+    G.vol = r2(pts > 0 && userVol != null ? userVol : c.answer);
+  } else if (c.kind === 'market'){
+    if (Math.random() < 0.75){
+      const dv = (G.vol - G.vol0) / G.vol0;
+      const pBuyVega = Math.min(0.85, Math.max(0.15, 0.5 - 1.5 * dv));
+      const buysVega = Math.random() < pBuyVega;
+      const side = (buysVega === (c.inst.nu > 0)) ? 'buy' : 'sell';
+      G.pending = { inst: c.inst, q: c.q, side, px: side === 'buy' ? r2(c.ask) : r2(c.bid) };
+    } else {
+      G.passed = true;
+      G.note = 'The customer passed on your ' + c.inst.name + ' market. No trade.';
+    }
+  }
+}
+
+/* ---------- rendering ---------- */
+function renderBoard(){
+  const facts = [['Futures', String(G.F)], ['Days to expiry', String(G.days)], ['Implied vol', G.vol0 + '%']];
+  if (G.oev) facts.push(['ATM straddle ν', f2(G.nuS)]);
+  $('facts').innerHTML =
+    '<div class="fact strong"><span class="label">Q · quote depth</span><span class="num">' + num(G.Q) + '</span></div>'
+    + '<div class="fact strong"><span class="label">D · deflection depth</span><span class="num">' + num(G.D) + '</span></div>'
+    + '<span class="sep" aria-hidden="true"></span>'
+    + facts.map(f => '<div class="fact"><span class="label">' + f[0] + '</span><span class="num">' + f[1] + '</span></div>').join('');
+  let h = '<thead><tr><th>Call</th><th class="k">Strike</th><th>Put</th><th>' + (G.oev ? 'OEV' : 'ν') + '</th></tr></thead><tbody>';
+  for (let i = 0; i < 7; i++){
+    h += '<tr' + (i === 3 ? ' class="atm"' : '') + '><td>' + f2(G.c[i]) + '</td><td class="k">' + G.K[i] + '</td><td>' + f2(G.p[i]) + '</td><td class="g">' + f2(G.shown[i]) + '</td></tr>';
+  }
+  $('board').innerHTML = h + '</tbody>';
+  $('settingsLine').innerHTML = '<b>Q = <span class="num">' + num(G.Q) + '</span> &nbsp; D = <span class="num">' + num(G.D) + '</span></b> &nbsp; ' + (G.oev ? 'OEV view' : 'Vega view');
+}
+function renderProgress(){
+  const total = G.points.reduce((a, b) => a + b, 0);
+  $('stepNo').textContent = Math.min(G.step, G.N) + ' / ' + G.N;
+  $('score').textContent = total + ' / ' + (3 * G.points.length);
+  let h = '';
+  for (let i = 0; i < G.N; i++){
+    h += '<span class="pip' + (i < G.points.length ? ' p' + G.points[i] : '') + (i === G.step - 1 && G.cur ? ' now' : '') + '"></span>';
+  }
+  $('pips').innerHTML = h;
+}
+const KIND = { market:'Market', trade:'Trade', vol:'Vol check', size:'Sizing' };
+
+function renderCard(){
+  renderProgress();
+  const c = G.cur;
+  let h = '<form id="ans" novalidate style="display:flex;flex-direction:column;gap:14px">';
+  h += '<div><span class="kind">' + KIND[c.kind] + '</span></div>';
+  if (G.note && c.kind !== 'trade') h += '<div class="note">' + esc(G.note) + '</div>';
+  if (c.kind === 'market'){
+    h += '<p class="ask-text">A customer asks for a two-way market in <b class="num">' + c.q + ' lots</b> of the <b>' + esc(c.inst.name) + '</b>.</p>';
+    h += '<div class="legs">' + esc(legStr(c.inst.legs)) + '</div>';
+    h += '<div class="inputs"><div class="field"><label class="label lbl-bid" for="aBid">Bid</label><input type="text" id="aBid" inputmode="decimal" autocomplete="off"></div>'
+       + '<span class="at">at</span>'
+       + '<div class="field"><label class="label lbl-ask" for="aAsk">Offer</label><input type="text" id="aAsk" inputmode="decimal" autocomplete="off"></div></div>';
+  } else if (c.kind === 'size'){
+    h += '<p class="ask-text">A customer wants to <b>' + c.side + '</b> the <b>' + esc(c.inst.name) + '</b> at <b class="num">' + f2(c.px) + '</b>. How many lots will you trade with them?</p>';
+    h += '<div class="legs">' + esc(legStr(c.inst.legs)) + '</div>';
+    h += '<div class="inputs"><div class="field"><label class="label" for="aLots">Lots (0 for none)</label><input type="text" id="aLots" inputmode="numeric" autocomplete="off"></div></div>';
+  } else {
+    if (c.kind === 'trade'){
+      h += '<p class="ask-text">' + (c.side === 'buy' ? 'You are lifted. The customer <b>buys</b> ' : 'You are hit. The customer <b>sells</b> ')
+         + '<b class="num">' + c.q + ' lots</b> of the <b>' + esc(c.inst.name) + '</b> at <b class="num">' + f2(c.px) + '</b>.</p>';
+      h += '<div class="legs">' + esc(legStr(c.inst.legs)) + '</div>';
+    } else if (c.opener){
+      h += '<p class="ask-text">The board is marked at <b class="num">' + G.vol0 + '%</b> implied and you have no position. What is your fair value for volatility?</p>';
+    } else {
+      h += '<p class="ask-text">What is your fair value for volatility right now?</p>';
+    }
+    h += '<div class="inputs"><div class="field"><label class="label" for="aVol">' + (c.kind === 'trade' ? 'New vol fair (%)' : 'Vol fair (%)') + '</label><input type="text" id="aVol" inputmode="decimal" autocomplete="off"></div></div>';
+  }
+  h += '<div class="rowend"><button class="btn" type="submit">Submit</button>'
+     + '<div class="tries" id="tries" aria-label="attempts left"></div></div>'
+     + '<div class="feedback" id="fb" role="status"></div></form>';
+  $('card').innerHTML = h;
+  renderTries();
+  $('ans').addEventListener('submit', onSubmit);
+  const first = $('card').querySelector('input');
+  if (first && !$('practise').hidden) first.focus();
+}
+function renderTries(){
+  let h = '<span class="label" style="margin-right:4px">Attempts</span>';
+  for (let i = 0; i < 3; i++) h += '<span class="try' + (i < G.tries ? ' used' : '') + '"></span>';
+  $('tries').innerHTML = h;
+}
+function parse(id){
+  const s = $(id).value.trim().replace('%', '').replace(',', '.');
+  if (s === '' || !/^[+-]?(\d+\.?\d*|\.\d+)$/.test(s)) return null;
+  return parseFloat(s);
+}
+const close = (a, b) => Math.abs(a - b) <= 0.005 + EPS;
+
+function onSubmit(ev){
+  ev.preventDefault();
+  const c = G.cur, fb = $('fb');
+  let ok, userVol = null;
+  if (c.kind === 'market'){
+    const b = parse('aBid'), a = parse('aAsk');
+    if (b === null || a === null){ fb.className = 'feedback bad'; fb.textContent = 'Enter a bid and an offer as numbers, for example 9.50 and 10.50.'; return; }
+    ok = close(b, c.bid) && close(a, c.ask);
+  } else if (c.kind === 'size'){
+    const v = parse('aLots');
+    if (v === null || v < 0 || Math.abs(v - Math.round(v)) > 1e-9){ fb.className = 'feedback bad'; fb.textContent = 'Enter a whole number of lots, or 0 if you will not trade.'; return; }
+    ok = Math.round(v) === c.answer;
+  } else {
+    const v = parse('aVol');
+    if (v === null){ fb.className = 'feedback bad'; fb.textContent = 'Enter the vol in points, for example 24.60.'; return; }
+    ok = close(v, c.answer); userVol = v;
+  }
+  G.tries++;
+  renderTries();
+  if (ok){
+    const pts = 4 - G.tries;
+    settle(pts, userVol);
+    fb.className = 'feedback good';
+    fb.textContent = 'Correct. +' + pts + (pts === 1 ? ' point' : ' points');
+    $('ans').querySelectorAll('input,button').forEach(e => e.disabled = true);
+    renderProgress();
+    setTimeout(nextStep, 650);
+  } else if (G.tries >= 3){
+    const body = failHelp(c);
+    settle(0, null);
+    $('ans').querySelectorAll('input,button').forEach(e => e.disabled = true);
+    renderProgress();
+    $('dlgBody').innerHTML = body + '<div class="volnow"><span class="label">Your vol fair is now</span><br><span class="num">' + f2(G.vol) + '%</span></div>';
+    $('overlay').hidden = false;
+    $('dlgClose').focus();
+  } else {
+    const left = 3 - G.tries;
+    fb.className = 'feedback bad';
+    fb.textContent = 'Not right. ' + left + (left === 1 ? ' attempt left.' : ' attempts left.');
+    const f = $('ans'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake');
+    const first = $('card').querySelector('input'); if (first) first.select();
+  }
+}
+
+function nuLine(inst){
+  if (!G.oev) return 'ν = ' + num(inst.nu);
+  return 'ν = OEV ' + num(inst.nu / G.nuS) + ' × ' + f2(G.nuS) + ' = ' + num(inst.nu);
+}
+function failHelp(c){
+  const lines = [];
+  let ans, head;
+  if (c.kind === 'market'){
+    head = 'Correct market in ' + c.q + ' lots of the ' + esc(c.inst.name);
+    ans = f2(c.bid) + ' at ' + f2(c.ask);
+    lines.push(nuLine(c.inst));
+    lines.push('fair = ' + f2(c.inst.tv) + ' + (' + f2(G.vol) + ' − ' + G.vol0 + ') × ' + pn(c.inst.nu) + ' = ' + num(c.fair));
+    lines.push('edge = ' + c.q + ' × ' + pn(c.inst.nu) + '² / ' + num(G.Q) + ' = ' + num(c.edge));
+    lines.push('bid/offer = ' + num(c.fair) + ' ± ' + num(c.edge));
+  } else if (c.kind === 'size'){
+    const cust = c.side === 'sell' ? 'sells' : 'buys';
+    head = 'Correct size when the customer ' + cust + ' the ' + esc(c.inst.name) + ' at ' + f2(c.px);
+    ans = c.answer + (c.answer === 1 ? ' lot' : ' lots');
+    lines.push(nuLine(c.inst));
+    lines.push('fair = ' + f2(c.inst.tv) + ' + (' + f2(G.vol) + ' − ' + G.vol0 + ') × ' + pn(c.inst.nu) + ' = ' + num(c.fair));
+    if (c.answer === 0){
+      lines.push('your edge = ' + (c.side === 'sell' ? num(c.fair) + ' − ' + f2(c.px) : f2(c.px) + ' − ' + num(c.fair)) + ' = ' + num(c.edge));
+      lines.push('no edge against your fair, so trade 0 lots');
+    } else {
+      lines.push('your edge = ' + (c.side === 'sell' ? num(c.fair) + ' − ' + f2(c.px) : f2(c.px) + ' − ' + num(c.fair)) + ' = ' + num(c.edge));
+      lines.push('lots = ' + num(c.edge) + ' × ' + num(G.Q) + ' / ' + pn(c.inst.nu) + '² = ' + num(c.edge * G.Q / (c.inst.nu * c.inst.nu)));
+      lines.push('round down to whole lots = ' + c.answer);
+    }
+  } else if (c.kind === 'trade'){
+    head = 'Correct new vol fair';
+    ans = f2(c.answer) + '%';
+    lines.push(nuLine(c.inst));
+    lines.push('customer ' + (c.side === 'buy' ? 'bought ' : 'sold ') + c.q + ' lots: ' + (c.delta >= 0 ? 'bought ' : 'sold ') + num(Math.abs(c.q * c.inst.nu)) + ' vega');
+    lines.push('Δσ = ' + (c.side === 'buy' ? '+' : '−') + c.q + ' × ' + pn(c.inst.nu) + ' / ' + num(G.D) + ' = ' + (c.delta >= 0 ? '+' : '−') + num(Math.abs(c.delta)));
+    lines.push('vol = ' + f2(G.vol) + ' ' + (c.delta >= 0 ? '+' : '−') + ' ' + num(Math.abs(c.delta)) + ' = ' + f2(c.answer));
+  } else {
+    head = 'Correct vol fair';
+    ans = f2(c.answer) + '%';
+    lines.push(c.opener ? 'No trades yet, so your fair is the implied vol.' : 'No trade since your last update, so the fair has not moved.');
+  }
+  return '<div><div class="label">' + head + '</div><div class="ans">' + ans + '</div></div>'
+       + '<div class="work">' + lines.map(l => '<span>' + esc(l) + '</span>').join('') + '</div>';
+}
+function closeDialog(){
+  if ($('overlay').hidden) return;
+  $('overlay').hidden = true;
+  $('dlgBody').innerHTML = '';
+  nextStep();
+}
+$('dlgClose').onclick = closeDialog;
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDialog(); });
+
+function renderDone(){
+  renderProgress();
+  const total = G.points.reduce((a, b) => a + b, 0), max = 3 * G.N;
+  let rows = '';
+  for (const k of ['market', 'size', 'trade', 'vol']){
+    const idx = G.kinds.map((x, i) => x === k ? i : -1).filter(i => i >= 0);
+    if (!idx.length) continue;
+    const pts = idx.reduce((a, i) => a + G.points[i], 0);
+    const first = idx.filter(i => G.points[i] === 3).length, miss = idx.filter(i => G.points[i] === 0).length;
+    rows += '<tr><td>' + KIND[k] + '</td><td class="num">' + idx.length + '</td><td class="num">' + first + '</td><td class="num">' + miss + '</td><td class="num">' + pts + ' / ' + 3 * idx.length + '</td></tr>';
+  }
+  $('card').innerHTML = '<div class="summary"><div><span class="kind">Finished</span></div>'
+    + '<div><div class="big">' + total + ' / ' + max + '</div><div class="muted">' + Math.round(100 * total / max) + '% of available points</div></div>'
+    + '<div class="scroll"><table class="ex"><thead><tr><th>Step type</th><th>Steps</th><th>First try</th><th>Missed</th><th>Points</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + '<p>Final vol fair: <span class="num">' + f2(G.vol) + '%</span> (started at <span class="num">' + G.vol0 + '%</span>).</p>'
+    + '<div><button class="btn" type="button" id="againBtn">Play again</button></div></div>';
+  $('againBtn').onclick = toSetup;
+}
+function toSetup(){ G = null; rollQD(); validate(); $('game').hidden = true; $('setup').hidden = false; $('overlay').hidden = true; }
+$('quitBtn').onclick = toSetup;
+
+/* ---------- setup ---------- */
+$('inSteps').addEventListener('input', () => { $('stepsOut').textContent = $('inSteps').value; });
+function rollQD(){
+  const Q = 10 + 5 * rnd(9);                         // 10, 15, ... 50
+  const lo = Math.ceil(6 * Q / 25) * 5, hi = Math.floor(Q / 2) * 5;  // multiples of 5 within [1.2Q, 2.5Q]
+  const D = 5 * (lo / 5 + rnd(hi / 5 - lo / 5 + 1));
+  $('inQ').value = Q; $('inD').value = D;
+}
+function validate(){
+  const Q = parseFloat($('inQ').value), D = parseFloat($('inD').value);
+  let msg = '';
+  if (!(Q > 0) || !(D > 0)) msg = 'Q and D must both be positive numbers.';
+  else if (D <= Q) msg = 'D must be larger than Q, otherwise every fill moves your fair through the trade price.';
+  $('setupErr').textContent = msg;
+  $('startBtn').disabled = !!msg;
+  return msg ? null : { Q, D };
+}
+$('rerollBtn').onclick = () => { rollQD(); validate(); };
+$('inQ').addEventListener('input', validate);
+$('inD').addEventListener('input', validate);
+$('setup').addEventListener('submit', e => {
+  e.preventDefault();
+  const v = validate();
+  if (v) start({ Q: v.Q, D: v.D, oev: $('inOev').checked, N: parseInt($('inSteps').value, 10) });
+});
+$('stepsOut').textContent = $('inSteps').value;
+rollQD();
+validate();
+})();
+</script>
+</body></html>
