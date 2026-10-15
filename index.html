@@ -72,6 +72,8 @@ input[type=text],input[type=number]{font-family:var(--mono);font-size:16px;paddi
 input[type=range]{width:100%;accent-color:var(--accent)}
 .check{display:flex;gap:10px;align-items:flex-start}
 .check input{margin-top:4px;accent-color:var(--accent);width:16px;height:16px}
+fieldset.choice{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+fieldset.choice .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 16px}
 .btn{font:inherit;font-weight:500;padding:9px 18px;border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer;border-radius:2px}
 .btn.ghost{background:none;color:var(--accent)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
@@ -123,6 +125,7 @@ table.board td.g{color:var(--accent);font-weight:500}
 .overlay{position:fixed;inset:0;background:rgba(8,14,20,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
 .dialog{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-top:3px solid var(--ask);max-width:480px;width:100%;padding:20px;display:flex;flex-direction:column;gap:14px;max-height:90vh;overflow:auto}
 .settings-line b{color:var(--ink);font-weight:600}
+.dialog.near{border-top-color:var(--warn)}
 .dialog .ans{font-family:var(--mono);font-size:22px;font-weight:600}
 .dialog .work{font-family:var(--mono);font-size:13px;display:flex;flex-direction:column;gap:3px;color:var(--muted);overflow-x:auto;white-space:nowrap}
 .dialog .volnow{background:var(--soft);padding:10px 12px}
@@ -214,6 +217,15 @@ table.board td.g{color:var(--accent);font-weight:500}
       </section>
 
       <section>
+        <h2>Linear or quadratic sizing</h2>
+        <p>Everything above uses <b>linear</b> sizing: the vega we show grows in proportion to the edge we charge. Write k = edge / &nu; for the edge measured in vegas.</p>
+        <div class="formula">linear: &nbsp; lots = Q &times; k / &nu; &nbsp;&nbsp;&nbsp; edge in price = lots &times; &nu;&sup2; / Q</div>
+        <p>Practise also offers <b>quadratic</b> sizing, where the position vega we take grows with the square of the edge in vegas. Doubling the edge buys four times the size. At one &nu; of edge both modes agree: Q vega.</p>
+        <div class="formula">quadratic: &nbsp; position vega = Q &times; k&sup2; &nbsp;&nbsp;&nbsp; lots = Q &times; k&sup2; / &nu; &nbsp;&nbsp;&nbsp; edge in price = &nu; &times; &radic;(lots &times; &nu; / Q)</div>
+        <p>With Q = 5, &nu; = 0.50 and 1.50 of edge, k = 3, so we take 5 &times; 3&sup2; = 45 vega, which is 45 / 0.50 = 90 lots. Asked for a market in 40 lots of the same option, the position is 20 vega and the edge is 0.50 &times; &radic;(20 / 5) = 1.00 a side. The vol bump after a fill is unchanged in both modes: &Delta;&sigma; = &plusmn; lots &times; &nu; / D.</p>
+      </section>
+
+      <section>
         <h2>Spreads</h2>
         <p>A spread is priced as one instrument. Its fair is the signed sum of its legs' fairs and its &nu; is the signed sum of its legs' vegas. Then the same two formulas apply.</p>
         <div class="scroll"><table class="ex">
@@ -242,11 +254,13 @@ table.board td.g{color:var(--accent);font-weight:500}
         <h2>How Practise scores you</h2>
         <ul>
           <li>You are given the board once, at the starting implied volatility. It never updates. Tracking your vol fair and your fairs is your job.</li>
-          <li>A <b>market</b> step names an instrument and a size. Enter the bid and offer: fair &plusmn; lots &times; &nu;&sup2; / Q, to the nearest 0.01 tick.</li>
-          <li>A <b>sizing</b> step has a customer offering to trade at a price, for example &ldquo;sell the 90/110 strangle at 3.00&rdquo;. Enter how many lots you will trade. If the price gives you no edge against your own fair, the answer is 0. Otherwise the answer is the most lots your edge pays for, lots = edge &times; Q / &nu;&sup2;, rounded down to whole lots. Sizing answers are not forced onto the 0.05 vol grid, because the customer's price is a 0.01 tick.</li>
+          <li>A <b>market</b> step names an instrument and a size. Enter the bid and offer: fair &plusmn; edge, to the nearest 0.01 tick, where edge = lots &times; &nu;&sup2; / Q (linear) or &nu; &times; &radic;(lots &times; &nu; / Q) (quadratic).</li>
+          <li>A <b>sizing</b> step has a customer offering to trade at a price, for example &ldquo;sell the 90/110 strangle at 3.00&rdquo;. Enter how many lots you will trade. If the price gives you no edge against your own fair, the answer is 0. Otherwise the answer is the most lots your edge pays for, rounded down to whole lots: edge &times; Q / &nu;&sup2; (linear) or Q &times; (edge / &nu;)&sup2; / &nu; (quadratic). Sizing answers are not forced onto the 0.05 vol grid, because the customer's price is a 0.01 tick.</li>
           <li>A <b>trade</b> step tells you the customer hit or lifted your full size. Enter your new vol fair, to 0.01 of a vol point. Sometimes the customer passes and nothing changes.</li>
           <li>A <b>vol check</b> step asks for your current vol fair. The first step of every game is one.</li>
-          <li>Each step allows three attempts and pays 3, 2 or 1 points by attempt, or 0. After a miss you are shown the answer and your current vol fair; close the box and it is gone.</li>
+          <li>Each step allows three attempts. An answer that lands in any accuracy band below ends the step and scores (3, 2 or 1 points for the first, second or third attempt) &times; (its accuracy multiplier), so a step is worth up to 9.</li>
+          <li>Accuracy multipliers. Markets, for an instrument with vega &nu;: <b>3&times;</b> both sides exact, <b>2&times;</b> both sides within &nu;/4, <b>1&times;</b> both sides within &nu;/2. Sizing: <b>3&times;</b> exact, <b>2&times;</b> within 10%, <b>1&times;</b> within 20% (a correct answer of 0 lots must be exact). Vol: <b>3&times;</b> exact to 0.01, <b>2&times;</b> within 0.10, <b>1&times;</b> within 0.30.</li>
+          <li>An answer outside every band uses up an attempt. After three misses, or after a near answer that is not exact, you are shown the exact answer and your current vol fair, which the game resets to the exact value. Close the box and it is gone.</li>
           <li>Sizes are always between 0.5 &nu; and 2 &nu; of edge, and in whole lots that move your vol by a multiple of 0.05 points. Implied vol runs from 15% to 80%. Vegas on the board are rounded to the nearest 0.05. In OEV view the OEVs are rounded to 0.01 from the true vegas and the ATM straddle &nu; is rounded to a multiple of 0.05, so sizes move your vol by a multiple of 0.01 instead.</li>
           <li>Conventions: fairs move linearly, fair = board value + (vol fair &minus; starting vol) &times; &nu;. Use the board's rounded values and vegas exactly as shown. Vol fair is carried at two decimals after each trade. In OEV view, &nu; = OEV &times; ATM straddle &nu; using the displayed numbers.</li>
         </ul>
@@ -278,6 +292,19 @@ table.board td.g{color:var(--accent);font-weight:500}
         <input type="checkbox" id="inOev">
         <span><b>OEV view</b><br><small class="muted">Show each strike's option equivalent vega and only the ATM straddle's true &nu;. Fixed for the whole game.</small></span>
       </label>
+      <fieldset class="choice">
+        <legend class="label">Sizing</legend>
+        <div class="opts">
+          <label class="check" for="inLinear">
+            <input type="radio" name="sizing" id="inLinear" value="linear" checked>
+            <span><b>Linear</b><br><small class="muted">lots = Q &times; (edge / &nu;) / &nu;. Twice the edge, twice the size.</small></span>
+          </label>
+          <label class="check" for="inQuad">
+            <input type="radio" name="sizing" id="inQuad" value="quad">
+            <span><b>Quadratic</b><br><small class="muted">lots = Q &times; (edge / &nu;)&sup2; / &nu;. Twice the edge, four times the size.</small></span>
+          </label>
+        </div>
+      </fieldset>
       <small class="muted">Q is a random multiple of 5 from 10 to 50. D is a random multiple of 5 from 1.2 Q to 2.5 Q. Edit either box to choose your own.</small>
       <div class="err" id="setupErr" role="alert"></div>
       <div class="setup-actions"><button class="btn" type="submit" id="startBtn">Start</button><button class="btn ghost" type="button" id="rerollBtn">Re-roll Q and D</button></div>
@@ -474,8 +501,20 @@ function niceSize(raw){
   return Math.max(step, Math.round(raw / step) * step);
 }
 const fairOf = inst => inst.tv + (G.vol - G.vol0) * inst.nu;
+/* Size and edge (in price) for one side of a market.
+   Linear:    lots = Q * (edge / nu) / nu   ->  edge = lots * nu^2 / Q
+   Quadratic: lots = Q * (edge / nu)^2 / nu ->  edge = |nu| * sqrt(lots * nu / Q)
+   Both modes take Q vega at one nu of edge. */
+function edgeFor(inst, lots){
+  const nu = Math.abs(inst.nu);
+  return G.quad ? nu * Math.sqrt(lots * nu / G.Q) : lots * nu * nu / G.Q;
+}
+function lotsFor(inst, edge){
+  const nu = Math.abs(inst.nu);
+  return G.quad ? G.Q * (edge / nu) * (edge / nu) / nu : edge * G.Q / (nu * nu);
+}
 function quote(inst, q){
-  const fair = fairOf(inst), edge = q * inst.nu * inst.nu / G.Q;
+  const fair = fairOf(inst), edge = edgeFor(inst, q);
   return { fair, edge, bid: fair - edge, ask: fair + edge };
 }
 
@@ -494,11 +533,17 @@ function sizeStep(inst){            // smallest lot count that moves the vol by 
 function sizeRange(inst){           // grid sizes inside the 0.5 to 2 vega edge window
   const nu = Math.abs(inst.nu), out = [];
   if (nu < 0.05 - 1e-9) return out;
-  const lo = Math.max(1, Math.ceil(0.5 * G.Q / nu - 1e-9)), hi = Math.floor(2 * G.Q / nu + 1e-9);
+  const lo = Math.max(1, Math.ceil(lotsFor(inst, 0.5 * nu) - 1e-9)), hi = Math.floor(lotsFor(inst, 2 * nu) + 1e-9);
   for (let L = lo; L <= hi; L++) if (onGrid(inst, L)) out.push(L);
   return out;
 }
-function pickSize(list){            // prefer round numbers when the window offers them
+function pickSize(list, inst){      // prefer round numbers when the window offers them
+  if (G.quad && Math.random() < 0.6){
+    // quadratic: favour sizes where edge / nu is a whole or half number of vegas
+    const nu = Math.abs(inst.nu);
+    const sq = list.filter(L => { const k = 2 * Math.sqrt(L * nu / G.Q); return Math.abs(k - Math.round(k)) < 1e-6; });
+    if (sq.length) return pick(sq);
+  }
   for (const t of [10, 5, 2]){
     const sub = list.filter(L => L % t === 0);
     if (sub.length) return pick(sub);
@@ -510,13 +555,13 @@ function newMarket(){
     const inst = randomInstrument();
     const list = sizeRange(inst);
     if (!list.length) continue;
-    const q = pickSize(list);
+    const q = pickSize(list, inst);
     const m = quote(inst, q);
     if (m.bid < 0.01 || r2(m.ask) - r2(m.bid) < 0.02) continue;
     return { kind:'market', inst, q, ...m };
   }
   const inst = mk(G.K[3] + ' straddle', [{t:'C',i:3,w:1},{t:'P',i:3,w:1}]);
-  const q = niceSize(G.Q / inst.nu);
+  const q = niceSize(G.Q / inst.nu);   // one nu of edge, the same size in both modes
   return { kind:'market', inst, q, ...quote(inst, q) };
 }
 const tickDown = x => Math.floor(x * 100 + 1e-7) / 100;
@@ -536,14 +581,13 @@ function newSizing(){
       if (custSells ? px < fair : px > fair) continue;
       ans = 0;
     } else {
-      lots = pickSize(list);
-      const edge = lots * nu * nu / G.Q;
+      lots = pickSize(list, inst);
+      const edge = edgeFor(inst, lots);
       px = custSells ? tickDown(fair - edge) : tickUp(fair + edge);
       const e = custSells ? fair - px : px - fair;
-      const raw = e * G.Q / (nu * nu);
-      ans = Math.floor(raw + 1e-9);                   // most whole lots the edge pays for
+      ans = Math.floor(lotsFor(inst, e) + 1e-9);      // most whole lots the edge pays for
       // keep the numbers easy: the answer sits just above a round size and stays inside 0.5 to 2 vega of edge
-      if (e < edge - 1e-9 || ans < lots || ans - lots > Math.max(2, 0.05 * lots) || ans * nu / G.Q > 2 + 1e-9) continue;
+      if (e < edge - 1e-9 || ans < lots || ans - lots > Math.max(2, 0.05 * lots) || e > 2 * nu + 1e-9) continue;
     }
     if (px < 0.01) continue;
     const e = custSells ? fair - px : px - fair;
@@ -553,7 +597,7 @@ function newSizing(){
 }
 
 function start(cfg){
-  G = { Q: cfg.Q, D: cfg.D, oev: cfg.oev, N: cfg.N, step: 0, points: [], kinds: [], pending: null, passed: false, note: '' };
+  G = { Q: cfg.Q, D: cfg.D, oev: cfg.oev, quad: cfg.quad, N: cfg.N, step: 0, points: [], kinds: [], pending: null, passed: false, note: '' };
   Object.assign(G, buildBoard(cfg.oev));
   G.vol = G.vol0;
   $('setup').hidden = true; $('game').hidden = false;
@@ -586,8 +630,8 @@ function settle(pts, userVol){
   G.points.push(pts); G.kinds.push(c.kind);
   G.note = '';
   if (c.kind === 'trade'){
-    // carry vol at two decimals; a correct entry is adopted so half-tick ties never drift
-    G.vol = r2(pts > 0 && userVol != null ? userVol : c.answer);
+    // carry vol at two decimals; an exact entry is adopted so half-tick ties never drift, anything else snaps to the answer
+    G.vol = r2(userVol != null ? userVol : c.answer);
   } else if (c.kind === 'market'){
     if (Math.random() < 0.75){
       const dv = (G.vol - G.vol0) / G.vol0;
@@ -604,7 +648,7 @@ function settle(pts, userVol){
 
 /* ---------- rendering ---------- */
 function renderBoard(){
-  const facts = [['Futures', String(G.F)], ['Days to expiry', String(G.days)], ['Implied vol', G.vol0 + '%']];
+  const facts = [['Sizing', G.quad ? 'Quadratic' : 'Linear'], ['Futures', String(G.F)], ['Days to expiry', String(G.days)], ['Implied vol', G.vol0 + '%']];
   if (G.oev) facts.push(['ATM straddle ν', f2(G.nuS)]);
   $('facts').innerHTML =
     '<div class="fact strong"><span class="label">Q · quote depth</span><span class="num">' + num(G.Q) + '</span></div>'
@@ -616,15 +660,16 @@ function renderBoard(){
     h += '<tr' + (i === 3 ? ' class="atm"' : '') + '><td>' + f2(G.c[i]) + '</td><td class="k">' + G.K[i] + '</td><td>' + f2(G.p[i]) + '</td><td class="g">' + f2(G.shown[i]) + '</td></tr>';
   }
   $('board').innerHTML = h + '</tbody>';
-  $('settingsLine').innerHTML = '<b>Q = <span class="num">' + num(G.Q) + '</span> &nbsp; D = <span class="num">' + num(G.D) + '</span></b> &nbsp; ' + (G.oev ? 'OEV view' : 'Vega view');
+  $('settingsLine').innerHTML = '<b>Q = <span class="num">' + num(G.Q) + '</span> &nbsp; D = <span class="num">' + num(G.D) + '</span></b> &nbsp; ' + (G.quad ? 'Quadratic sizing' : 'Linear sizing') + ' &nbsp; ' + (G.oev ? 'OEV view' : 'Vega view');
 }
 function renderProgress(){
   const total = G.points.reduce((a, b) => a + b, 0);
   $('stepNo').textContent = Math.min(G.step, G.N) + ' / ' + G.N;
-  $('score').textContent = total + ' / ' + (3 * G.points.length);
+  $('score').textContent = total + ' / ' + (9 * G.points.length);
+  const tier = p => p >= 9 ? 3 : p >= 4 ? 2 : p > 0 ? 1 : 0;
   let h = '';
   for (let i = 0; i < G.N; i++){
-    h += '<span class="pip' + (i < G.points.length ? ' p' + G.points[i] : '') + (i === G.step - 1 && G.cur ? ' now' : '') + '"></span>';
+    h += '<span class="pip' + (i < G.points.length ? ' p' + tier(G.points[i]) : '') + (i === G.step - 1 && G.cur ? ' now' : '') + '"></span>';
   }
   $('pips').innerHTML = h;
 }
@@ -678,46 +723,53 @@ function parse(id){
   return parseFloat(s);
 }
 const close = (a, b) => Math.abs(a - b) <= 0.005 + EPS;
+/* Accuracy multiplier: 3 exact, 2 or 1 for near answers, 0 outside every band. */
+function band(err, b2, b1){ return err <= 0.005 + EPS ? 3 : err <= b2 + EPS ? 2 : err <= b1 + EPS ? 1 : 0; }
 
 function onSubmit(ev){
   ev.preventDefault();
   const c = G.cur, fb = $('fb');
-  let ok, userVol = null;
+  let mult, userVol = null;
   if (c.kind === 'market'){
     const b = parse('aBid'), a = parse('aAsk');
     if (b === null || a === null){ fb.className = 'feedback bad'; fb.textContent = 'Enter a bid and an offer as numbers, for example 9.50 and 10.50.'; return; }
-    ok = close(b, c.bid) && close(a, c.ask);
+    const x = Math.abs(c.inst.nu);
+    mult = band(Math.max(Math.abs(b - c.bid), Math.abs(a - c.ask)), x / 4, x / 2);
   } else if (c.kind === 'size'){
     const v = parse('aLots');
     if (v === null || v < 0 || Math.abs(v - Math.round(v)) > 1e-9){ fb.className = 'feedback bad'; fb.textContent = 'Enter a whole number of lots, or 0 if you will not trade.'; return; }
-    ok = Math.round(v) === c.answer;
+    const L = Math.round(v), rel = c.answer === 0 ? Infinity : Math.abs(L - c.answer) / c.answer;
+    mult = L === c.answer ? 3 : rel <= 0.1 + EPS ? 2 : rel <= 0.2 + EPS ? 1 : 0;
   } else {
     const v = parse('aVol');
     if (v === null){ fb.className = 'feedback bad'; fb.textContent = 'Enter the vol in points, for example 24.60.'; return; }
-    ok = close(v, c.answer); userVol = v;
+    mult = band(Math.abs(v - c.answer), 0.1, 0.3); userVol = v;
   }
   G.tries++;
   renderTries();
-  if (ok){
-    const pts = 4 - G.tries;
+  const pts = mult * (4 - G.tries);
+  if (mult === 3){
     settle(pts, userVol);
     fb.className = 'feedback good';
-    fb.textContent = 'Correct. +' + pts + (pts === 1 ? ' point' : ' points');
+    fb.textContent = 'Exact. 3× multiplier, +' + pts + ' points';
     $('ans').querySelectorAll('input,button').forEach(e => e.disabled = true);
     renderProgress();
     setTimeout(nextStep, 650);
-  } else if (G.tries >= 3){
+  } else if (mult > 0 || G.tries >= 3){
+    // near answer or out of attempts: show the exact answer and resync the vol fair to it
     const body = failHelp(c);
-    settle(0, null);
+    settle(pts, null);
     $('ans').querySelectorAll('input,button').forEach(e => e.disabled = true);
     renderProgress();
+    $('dlgTitle').textContent = mult > 0 ? 'Close: ' + mult + '× multiplier, +' + pts + (pts === 1 ? ' point' : ' points') : 'Out of attempts';
+    $('overlay').querySelector('.dialog').classList.toggle('near', mult > 0);
     $('dlgBody').innerHTML = body + '<div class="volnow"><span class="label">Your vol fair is now</span><br><span class="num">' + f2(G.vol) + '%</span></div>';
     $('overlay').hidden = false;
     $('dlgClose').focus();
   } else {
     const left = 3 - G.tries;
     fb.className = 'feedback bad';
-    fb.textContent = 'Not right. ' + left + (left === 1 ? ' attempt left.' : ' attempts left.');
+    fb.textContent = 'Outside every scoring band. ' + left + (left === 1 ? ' attempt left.' : ' attempts left.');
     const f = $('ans'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake');
     const first = $('card').querySelector('input'); if (first) first.select();
   }
@@ -735,7 +787,9 @@ function failHelp(c){
     ans = f2(c.bid) + ' at ' + f2(c.ask);
     lines.push(nuLine(c.inst));
     lines.push('fair = ' + f2(c.inst.tv) + ' + (' + f2(G.vol) + ' − ' + G.vol0 + ') × ' + pn(c.inst.nu) + ' = ' + num(c.fair));
-    lines.push('edge = ' + c.q + ' × ' + pn(c.inst.nu) + '² / ' + num(G.Q) + ' = ' + num(c.edge));
+    lines.push(G.quad
+      ? 'edge = ' + num(Math.abs(c.inst.nu)) + ' × √(' + c.q + ' × ' + num(Math.abs(c.inst.nu)) + ' / ' + num(G.Q) + ') = ' + num(c.edge)
+      : 'edge = ' + c.q + ' × ' + pn(c.inst.nu) + '² / ' + num(G.Q) + ' = ' + num(c.edge));
     lines.push('bid/offer = ' + num(c.fair) + ' ± ' + num(c.edge));
   } else if (c.kind === 'size'){
     const cust = c.side === 'sell' ? 'sells' : 'buys';
@@ -748,7 +802,9 @@ function failHelp(c){
       lines.push('no edge against your fair, so trade 0 lots');
     } else {
       lines.push('your edge = ' + (c.side === 'sell' ? num(c.fair) + ' − ' + f2(c.px) : f2(c.px) + ' − ' + num(c.fair)) + ' = ' + num(c.edge));
-      lines.push('lots = ' + num(c.edge) + ' × ' + num(G.Q) + ' / ' + pn(c.inst.nu) + '² = ' + num(c.edge * G.Q / (c.inst.nu * c.inst.nu)));
+      lines.push(G.quad
+        ? 'lots = ' + num(G.Q) + ' × (' + num(c.edge) + ' / ' + num(Math.abs(c.inst.nu)) + ')² / ' + num(Math.abs(c.inst.nu)) + ' = ' + num(lotsFor(c.inst, c.edge))
+        : 'lots = ' + num(c.edge) + ' × ' + num(G.Q) + ' / ' + pn(c.inst.nu) + '² = ' + num(lotsFor(c.inst, c.edge)));
       lines.push('round down to whole lots = ' + c.answer);
     }
   } else if (c.kind === 'trade'){
@@ -777,18 +833,18 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDialog(
 
 function renderDone(){
   renderProgress();
-  const total = G.points.reduce((a, b) => a + b, 0), max = 3 * G.N;
+  const total = G.points.reduce((a, b) => a + b, 0), max = 9 * G.N;
   let rows = '';
   for (const k of ['market', 'size', 'trade', 'vol']){
     const idx = G.kinds.map((x, i) => x === k ? i : -1).filter(i => i >= 0);
     if (!idx.length) continue;
     const pts = idx.reduce((a, i) => a + G.points[i], 0);
-    const first = idx.filter(i => G.points[i] === 3).length, miss = idx.filter(i => G.points[i] === 0).length;
-    rows += '<tr><td>' + KIND[k] + '</td><td class="num">' + idx.length + '</td><td class="num">' + first + '</td><td class="num">' + miss + '</td><td class="num">' + pts + ' / ' + 3 * idx.length + '</td></tr>';
+    const first = idx.filter(i => G.points[i] === 9).length, miss = idx.filter(i => G.points[i] === 0).length;
+    rows += '<tr><td>' + KIND[k] + '</td><td class="num">' + idx.length + '</td><td class="num">' + first + '</td><td class="num">' + miss + '</td><td class="num">' + pts + ' / ' + 9 * idx.length + '</td></tr>';
   }
   $('card').innerHTML = '<div class="summary"><div><span class="kind">Finished</span></div>'
     + '<div><div class="big">' + total + ' / ' + max + '</div><div class="muted">' + Math.round(100 * total / max) + '% of available points</div></div>'
-    + '<div class="scroll"><table class="ex"><thead><tr><th>Step type</th><th>Steps</th><th>First try</th><th>Missed</th><th>Points</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + '<div class="scroll"><table class="ex"><thead><tr><th>Step type</th><th>Steps</th><th>Perfect (9)</th><th>Missed</th><th>Points</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
     + '<p>Final vol fair: <span class="num">' + f2(G.vol) + '%</span> (started at <span class="num">' + G.vol0 + '%</span>).</p>'
     + '<div><button class="btn" type="button" id="againBtn">Play again</button></div></div>';
   $('againBtn').onclick = toSetup;
@@ -819,7 +875,7 @@ $('inD').addEventListener('input', validate);
 $('setup').addEventListener('submit', e => {
   e.preventDefault();
   const v = validate();
-  if (v) start({ Q: v.Q, D: v.D, oev: $('inOev').checked, N: parseInt($('inSteps').value, 10) });
+  if (v) start({ Q: v.Q, D: v.D, oev: $('inOev').checked, quad: $('inQuad').checked, N: parseInt($('inSteps').value, 10) });
 });
 $('stepsOut').textContent = $('inSteps').value;
 rollQD();

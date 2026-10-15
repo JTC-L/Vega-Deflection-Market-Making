@@ -11,6 +11,10 @@ A single-page trainer for deflection market making in options. One HTML file, no
 - **Trade:** the customer hit or lifted you; enter your new vol fair.
 - **Vol check:** state your current vol fair.
 
+Sizing is linear (lots = Q × (edge/ν) / ν) or quadratic (position vega = Q × (edge/ν)², so lots = Q × (edge/ν)² / ν), chosen at the start of a game.
+
+Scoring: each step allows three attempts worth 3, 2 or 1 points, multiplied by an accuracy multiplier, so a step pays up to 9. Markets score 3× if both sides are exact, 2× within ν/4 and 1× within ν/2. Sizing scores 3× exact, 2× within 10% and 1× within 20%. Vol scores 3× exact, 2× within 0.10 and 1× within 0.30. A near answer ends the step and shows the exact answer.
+
 Sizes always carry between 0.5 and 2 vega of edge. Board vegas are rounded to 0.05. In OEV view, OEVs are rounded to 0.01 from the true vegas and the ATM straddle vega to a multiple of 0.05.
 
 ## Run it
