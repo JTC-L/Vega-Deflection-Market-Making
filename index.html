@@ -132,6 +132,42 @@ table.board td.g{color:var(--accent);font-weight:500}
 .dialog .volnow .num{font-size:18px;font-weight:600}
 .summary{display:flex;flex-direction:column;gap:14px}
 .big{font-family:var(--mono);font-size:34px;font-weight:600;line-height:1.1}
+/* clock, order book, two expiries, end-of-game chart */
+.timer{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:50%;transform:translateX(-50%);z-index:5;font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:20px;font-weight:600;padding:4px 16px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:2px}
+.timer.low{color:var(--ask);border-color:var(--ask)}
+body.timing .wrap{padding-top:64px}
+.bpanel{display:flex;flex-direction:column;gap:8px;min-width:0}
+.bhead{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;font-weight:600}
+.bhead .num{font-weight:500}
+table.board td.ord{font-size:12px;white-space:nowrap;color:var(--muted)}
+table.board td.ord:first-child{text-align:right}
+.ob{color:var(--bid)} .oa{color:var(--ask)}
+.ord sub,.prose sub.sz{font-size:.75em;margin-inline:2px}
+.fact.pnl.pos .num{color:var(--bid)} .fact.pnl.neg .num{color:var(--ask)}
+#boards{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.desk.two{grid-template-columns:minmax(0,1fr)}
+.desk.two .boardwrap{height:70vh}
+.desk.two #boards{grid-template-columns:minmax(0,1fr) minmax(0,1fr);flex:1;min-height:0}
+.desk.two .bpanel{min-height:0}
+.desk.two .bpanel .scroll{flex:1;min-height:0;overflow:auto}
+.desk.two table.board{height:100%;font-size:14px}
+.desk.two table.board td,.desk.two table.board th{padding:5px 6px}
+.desk.two table.board td.ord{font-size:11px}
+.desk.two .ticket{width:100%;max-width:640px;margin-inline:auto}
+@media (max-width:780px){.desk.two .boardwrap{height:auto}.desk.two #boards{grid-template-columns:minmax(0,1fr)}}
+.chart{display:flex;flex-direction:column;gap:6px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--muted)}
+.sw{display:inline-block;width:18px;border-top:2px solid var(--accent);vertical-align:middle;margin-right:6px}
+.sw.dash{border-top:2px dashed var(--muted)}
+.chartbox{position:relative}
+.chartbox svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.chartbox .gl{stroke:var(--line);stroke-width:1}
+.chartbox .ch{stroke:var(--muted);stroke-width:1}
+.chartbox text{font-family:var(--mono);font-size:15px;fill:var(--muted)}
+.chartbox .mkt{fill:none;stroke:var(--muted);stroke-width:2;stroke-dasharray:5 4}
+.chartbox .mine{fill:none;stroke:var(--accent);stroke-width:2}
+.chartbox .dot{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+.tip{position:absolute;top:0;transform:translateX(-50%);pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--line);padding:4px 8px;font-family:var(--mono);font-size:12px;white-space:nowrap}
 @media (prefers-reduced-motion:no-preference){.shake{animation:shake .25s}}
 @keyframes shake{25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
 </style>
@@ -251,6 +287,31 @@ table.board td.g{color:var(--accent);font-weight:500}
       </section>
 
       <section>
+        <h2>The market has a story</h2>
+        <p>Each game, the market's vol follows a path. It might drift steadily up all session, or rally hard and then give some back near the end. It turns at most once, and the pace is not constant. You never see the path while you play. You see it in who trades with you: when the market is above your fair, customers lift your offers more often than they hit your bids, and the other way round. At the end of the game a chart shows the market's path against the vol you were carrying.</p>
+      </section>
+
+      <section>
+        <h2>Order implied volatility mode</h2>
+        <p>This mode has no deflection depth. Your vol fair is not moved by a formula. It is set by what large customers show you.</p>
+        <ul>
+          <li>On your first or second market, a big customer arrives. If that market scored, they trade on one side of it; if it scored 0, they don't trade. Either way they leave large orders 0.5 to 1.5 vol points above the starting vol (bids) or below it (offers), in the legs of that instrument and the at-the-money call and put. Those orders appear on the board next to the starting values, for example <span class="num"><sub class="sz">(x500)</sub>5.25 &ndash;</span> for a bid or <span class="num">&ndash; 5.60<sub class="sz">(x500)</sub></span> for an offer, with the size written small below the line.</li>
+          <li>Take the latest big order's vol as your new reference and rebase your fair to just above a big bid, or just below a big offer. Treat every option as tightly correlated, so that vol applies across the board, other strikes and the other expiry included.</li>
+          <li>A sensible market then has the right width for your Q, centred so that the big order is your hedge. With a big bid at price P in your instrument's terms, your bid must be at or below P, so a customer who sells to you can be passed straight on to the big bidder, and your fair must be at or above P. With a big offer it is the mirror image.</li>
+          <li>Small customers will then sell to you (under a big bid) or buy from you (under a big offer). These are the easy trades: each comes with a hedge.</li>
+          <li>Once the market's story has moved at least half a vol point past the latest big order, another big customer trades the same way through your next market and leaves fresh large orders 0.5 to 1.5 points further on, and you rebase again. If the story turns, the old orders are pulled and a big order appears on the other side.</li>
+          <li>Before any big order your reference is the starting implied vol.</li>
+          <li>Each market allows three attempts. If it is still not sensible after the third, you are shown why along with a sensible market. A customer trades on it, on the side that hurts, unless it was simply too wide, which gives nobody anything to pick off.</li>
+        </ul>
+        <p>There is no single right answer, so a sensible market scores 3 points on the first try, 2 on the second and 1 on the third. Your PnL is shown live, marked at the vol of the latest big order.</p>
+      </section>
+
+      <section>
+        <h2>Two expiries</h2>
+        <p>Practise can deal two expiries on the same future, both starting at the same implied vol. Each board has its own strikes and vegas, and instruments name their expiry in days. There is one vol fair for both: a fill in either expiry moves it by lots &times; &nu; / D, with the &nu; of the expiry that traded.</p>
+      </section>
+
+      <section>
         <h2>How Practise scores you</h2>
         <ul>
           <li>You are given the board once, at the starting implied volatility. It never updates. Tracking your vol fair and your fairs is your job.</li>
@@ -259,8 +320,10 @@ table.board td.g{color:var(--accent);font-weight:500}
           <li>A <b>trade</b> step tells you the customer hit or lifted your full size. Enter your new vol fair, to 0.01 of a vol point. Sometimes the customer passes and nothing changes.</li>
           <li>A <b>vol check</b> step asks for your current vol fair. The first step of every game is one.</li>
           <li>Each step allows three attempts. An answer that lands in any accuracy band below ends the step and scores (3, 2 or 1 points for the first, second or third attempt) &times; (its accuracy multiplier), so a step is worth up to 9.</li>
-          <li>Accuracy multipliers. Markets, for an instrument with vega &nu;: <b>3&times;</b> both sides exact, <b>2&times;</b> both sides within &nu;/4, <b>1&times;</b> both sides within &nu;/2. Sizing: <b>3&times;</b> exact, <b>2&times;</b> within 10%, <b>1&times;</b> within 20% (a correct answer of 0 lots must be exact). Vol: <b>3&times;</b> exact to 0.01, <b>2&times;</b> within 0.10, <b>1&times;</b> within 0.30.</li>
-          <li>An answer outside every band uses up an attempt. After three misses, or after a near answer that is not exact, you are shown the exact answer and your current vol fair, which the game resets to the exact value. Close the box and it is gone.</li>
+          <li>Accuracy is judged by vega. Your answer is worked backwards to the &nu; that would make it exactly right. If that &nu; is within <b>10%</b> of the true &nu; the multiplier is <b>3&times;</b>, within <b>20%</b> it is <b>2&times;</b>, within <b>30%</b> it is <b>1&times;</b>. For example, with Q = 15 and the 100 calls at 10.00 with &nu; = 0.50, the 30 lot market is 9.50 at 10.50. Making it 9.40 at 10.60 instead implies &nu; = &radic;(0.60 &times; 15 / 30) = &radic;0.30 = 0.548, which is within 10%, so it scores 3&times;. In quadratic sizing the same width implies a different &nu;, judged the same way.</li>
+          <li>Where &nu; enters twice, both uses are checked. A market's width implies one &nu; and its centre implies another (fair = board value + vol move &times; &nu;), and the worse of the two sets the multiplier. If your vol fair has not moved from the board's, the centre must be right to the tick. A sizing answer implies &nu; through the lots formula, and a new vol fair implies &nu; through &Delta;&sigma; = lots &times; &nu; / D. A vol check with no trade has no &nu; in it, so it scores 3&times; exact, 2&times; within 0.10 and 1&times; within 0.30.</li>
+          <li>An answer outside every band uses up an attempt. After three misses, or after an answer that scores but is not exact, you are shown the exact answer and your current vol fair, which the game resets to the exact value. Close the box and it is gone.</li>
+          <li>The clock allows 30 seconds per step and keeps running while a box is open. If it runs out, the game ends there. If you finish early, every full 10 seconds left adds 3 points.</li>
           <li>Sizes are always between 0.5 &nu; and 2 &nu; of edge, and in whole lots that move your vol by a multiple of 0.05 points. Implied vol runs from 15% to 80%. Vegas on the board are rounded to the nearest 0.05. In OEV view the OEVs are rounded to 0.01 from the true vegas and the ATM straddle &nu; is rounded to a multiple of 0.05, so sizes move your vol by a multiple of 0.01 instead.</li>
           <li>Conventions: fairs move linearly, fair = board value + (vol fair &minus; starting vol) &times; &nu;. Use the board's rounded values and vegas exactly as shown. Vol fair is carried at two decimals after each trade. In OEV view, &nu; = OEV &times; ATM straddle &nu; using the displayed numbers.</li>
         </ul>
@@ -272,6 +335,19 @@ table.board td.g{color:var(--accent);font-weight:500}
   <main id="practise" role="tabpanel" aria-labelledby="tab-practise" hidden>
     <form class="panel setup" id="setup" novalidate>
       <h2>New game</h2>
+      <fieldset class="choice">
+        <legend class="label">Mode</legend>
+        <div class="opts">
+          <label class="check" for="inDefl">
+            <input type="radio" name="mode" id="inDefl" value="defl" checked>
+            <span><b>Deflection</b><br><small class="muted">Customers' trades deflect your vol fair by D. Every answer has one right value.</small></span>
+          </label>
+          <label class="check" for="inOiv">
+            <input type="radio" name="mode" id="inOiv" value="oiv">
+            <span><b>Order implied volatility</b><br><small class="muted">No D. Big customer orders on the board tell you where vol is. Scored on sensible markets, with a running PnL.</small></span>
+          </label>
+        </div>
+      </fieldset>
       <div class="fields">
         <div class="field bold">
           <label class="label" for="inQ">Q &middot; quote depth</label>
@@ -292,6 +368,10 @@ table.board td.g{color:var(--accent);font-weight:500}
         <input type="checkbox" id="inOev">
         <span><b>OEV view</b><br><small class="muted">Show each strike's option equivalent vega and only the ATM straddle's true &nu;. Fixed for the whole game.</small></span>
       </label>
+      <label class="check" for="inTwo">
+        <input type="checkbox" id="inTwo">
+        <span><b>Two expiries</b><br><small class="muted">Two boards on the same future and the same starting vol, shown side by side above the questions.</small></span>
+      </label>
       <fieldset class="choice">
         <legend class="label">Sizing</legend>
         <div class="opts">
@@ -305,20 +385,18 @@ table.board td.g{color:var(--accent);font-weight:500}
           </label>
         </div>
       </fieldset>
-      <small class="muted">Q is a random multiple of 5 from 10 to 50. D is a random multiple of 5 from 1.2 Q to 2.5 Q. Edit either box to choose your own.</small>
+      <small class="muted">Q is a random multiple of 5 from 10 to 50. D is a random multiple of 5 from 1.2 Q to 2.5 Q. Edit either box to choose your own. You get 30 seconds per step on the clock.</small>
       <div class="err" id="setupErr" role="alert"></div>
       <div class="setup-actions"><button class="btn" type="submit" id="startBtn">Start</button><button class="btn ghost" type="button" id="rerollBtn">Re-roll Q and D</button></div>
     </form>
 
     <div id="game" hidden>
-      <div class="desk">
+      <div class="desk" id="desk">
         <div class="boardwrap">
           <div class="panel">
             <div class="facts" id="facts"></div>
           </div>
-          <div class="panel scroll">
-            <table class="board" id="board"></table>
-          </div>
+          <div id="boards"></div>
           <p class="muted" style="font-size:13px">Board values are at the starting implied volatility and do not update.</p>
         </div>
         <div class="ticket">
@@ -339,6 +417,8 @@ table.board td.g{color:var(--accent);font-weight:500}
     </div>
   </main>
 </div>
+
+<div class="timer" id="timer" role="timer" aria-label="Time left" hidden></div>
 
 <div class="overlay" id="overlay" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
@@ -411,17 +491,8 @@ function black(F, K, sig, T){
 let G = null;
 
 const r05 = x => Math.round(Math.round(x / 0.05) * 0.05 * 100) / 100;
-function buildBoard(oev){
-  let F, days, vol0, T, sig;
-  // Vega view needs long expiries so rounding to 0.05 still leaves a usable board.
-  // OEV view only needs the ATM straddle vega to survive its own rounding, so it keeps the shorter expiries.
-  const dayList = oev ? [30, 45, 60, 90, 120, 180, 270, 365] : [90, 120, 180, 270, 365, 540, 730];
-  do {
-    F = pick([100, 100, 150, 200]);
-    days = pick(dayList);
-    vol0 = 15 + rnd(66);                       // 15% to 80%
-    T = days / 365; sig = vol0 / 100;
-  } while (sig * Math.sqrt(T) > 0.9 || 2 * black(F, F, sig, T).vega < (oev ? 0.2 : 0.5));
+function buildExpiry(F, sig, days, oev){
+  const T = days / 365;
   const target = 0.5 * F * sig * Math.sqrt(T);
   const nice = [1, 2, 2.5, 5, 10, 15, 20, 25, 30, 40, 50].filter(n => n <= 0.3 * F);
   let dK = nice[0];
@@ -443,59 +514,85 @@ function buildBoard(oev){
     v = shown.slice();
     nuS = r2(2 * v[3]);
   }
-  return { F, days, vol0, K, c, p, v, shown, nuS };
+  return { days, K, c, p, v, shown, nuS };
+}
+function buildGame(oev, two){
+  // Vega view needs long expiries so rounding to 0.05 still leaves a usable board.
+  // OEV view only needs the ATM straddle vega to survive its own rounding, so it keeps the shorter expiries.
+  const dayList = oev ? [30, 45, 60, 90, 120, 180, 270, 365] : [90, 120, 180, 270, 365, 540, 730];
+  const usable = (F, sig, d) => { const T = d / 365; return sig * Math.sqrt(T) <= 0.9 && 2 * black(F, F, sig, T).vega >= (oev ? 0.2 : 0.5); };
+  for (;;){
+    const F = pick([100, 100, 150, 200]), vol0 = 15 + rnd(66), sig = vol0 / 100;   // 15% to 80%
+    let days;
+    if (two){
+      const d1 = pick(dayList), longer = dayList.filter(d => d >= 2 * d1);
+      if (!longer.length) continue;
+      days = [d1, pick(longer)];
+    } else days = [pick(dayList)];
+    if (!days.every(d => usable(F, sig, d))) continue;
+    return { F, vol0, ex: days.map(d => buildExpiry(F, sig, d, oev)) };
+  }
 }
 
+/* ---------- instruments ---------- */
+const expTag = e => G.two ? G.ex[e].days + 'd ' : '';
 function legStr(legs){
-  return legs.map(l => (l.w > 0 ? '+' : '−') + Math.abs(l.w) + ' ' + G.K[l.i] + l.t).join(', ');
+  return legs.map(l => (l.w > 0 ? '+' : '−') + Math.abs(l.w) + ' ' + G.ex[l.e].K[l.i] + l.t + (G.two ? ' ' + G.ex[l.e].days + 'd' : '')).join(', ');
 }
-function mk(name, legs){
+function mk(e, name, legs){
+  const B = G.ex[e];
   let tv = 0, nu = 0;
-  for (const l of legs){ tv += l.w * (l.t === 'C' ? G.c[l.i] : G.p[l.i]); nu += l.w * G.v[l.i]; }
+  for (const l of legs){ l.e = e; tv += l.w * (l.t === 'C' ? B.c[l.i] : B.p[l.i]); nu += l.w * B.v[l.i]; }
   nu = Math.round(nu * 1e6) / 1e6;
-  return { name, legs, tv, nu };
+  return { e, name: expTag(e) + name, legs, tv, nu };
 }
 function randomInstrument(){
-  const K = G.K;
-  const kind = pick(['straddle','straddle','straddle','straddle','straddle','straddle','straddle',
-    'strangle','strangle','strangle','strangle','strangle','strangle',
-    'call','call','put','put','cs','cs','ps','ps','fly','condor','ladder']);
+  const e = G.two ? rnd(2) : 0, K = G.ex[e].K;
+  // order implied vol mode sticks to long-vega instruments, so every big order is a bid or offer for vol in each leg
+  const kind = pick(G.oiv
+    ? ['straddle','straddle','straddle','straddle','strangle','strangle','strangle','call','put']
+    : ['straddle','straddle','straddle','straddle','straddle','straddle','straddle',
+       'strangle','strangle','strangle','strangle','strangle','strangle',
+       'call','call','put','put','cs','cs','ps','ps','fly','condor','ladder']);
   const cp = Math.random() < 0.5 ? 'C' : 'P', word = cp === 'C' ? 'call' : 'put';
   if (kind === 'straddle'){
     const i = Math.random() < 0.6 ? 3 : rnd(7);
-    return mk(K[i] + ' straddle', [{t:'C',i,w:1},{t:'P',i,w:1}]);
+    return mk(e, K[i] + ' straddle', [{t:'C',i,w:1},{t:'P',i,w:1}]);
   }
   if (kind === 'strangle'){
     let i, j;
     if (Math.random() < 0.75){ const d = 1 + rnd(3); i = 3 - d; j = 3 + d; }
     else { i = rnd(6); j = i + 1 + rnd(6 - i); }
-    return mk(K[i] + '/' + K[j] + ' strangle', [{t:'P',i,w:1},{t:'C',i:j,w:1}]);
+    return mk(e, K[i] + '/' + K[j] + ' strangle', [{t:'P',i,w:1},{t:'C',i:j,w:1}]);
   }
-  if (kind === 'call'){ const i = rnd(7); return mk(K[i] + ' call', [{t:'C',i,w:1}]); }
-  if (kind === 'put'){ const i = rnd(7); return mk(K[i] + ' put', [{t:'P',i,w:1}]); }
+  if (kind === 'call'){ const i = rnd(7); return mk(e, K[i] + ' call', [{t:'C',i,w:1}]); }
+  if (kind === 'put'){ const i = rnd(7); return mk(e, K[i] + ' put', [{t:'P',i,w:1}]); }
   if (kind === 'cs' || kind === 'ps'){
     const i = rnd(6), j = i + 1 + rnd(Math.min(3, 6 - i));
     return kind === 'cs'
-      ? mk(K[i] + '/' + K[j] + ' call spread', [{t:'C',i,w:1},{t:'C',i:j,w:-1}])
-      : mk(K[j] + '/' + K[i] + ' put spread', [{t:'P',i:j,w:1},{t:'P',i,w:-1}]);
+      ? mk(e, K[i] + '/' + K[j] + ' call spread', [{t:'C',i,w:1},{t:'C',i:j,w:-1}])
+      : mk(e, K[j] + '/' + K[i] + ' put spread', [{t:'P',i:j,w:1},{t:'P',i,w:-1}]);
   }
   if (kind === 'fly'){
     const b = 1 + rnd(5), w = 1 + rnd(Math.min(b, 6 - b));
-    return mk(K[b-w] + '/' + K[b] + '/' + K[b+w] + ' ' + word + ' butterfly',
+    return mk(e, K[b-w] + '/' + K[b] + '/' + K[b+w] + ' ' + word + ' butterfly',
       [{t:cp,i:b-w,w:1},{t:cp,i:b,w:-2},{t:cp,i:b+w,w:1}]);
   }
   if (kind === 'condor'){
     const w = 1 + rnd(2), g = 1 + rnd(w === 1 ? 3 : 1), a = rnd(7 - (2*w + g));
     const b = a + w, c = b + g, d = c + w;
-    return mk(K[a] + '/' + K[b] + '/' + K[c] + '/' + K[d] + ' ' + word + ' condor',
+    return mk(e, K[a] + '/' + K[b] + '/' + K[c] + '/' + K[d] + ' ' + word + ' condor',
       [{t:cp,i:a,w:1},{t:cp,i:b,w:-1},{t:cp,i:c,w:-1},{t:cp,i:d,w:1}]);
   }
   // ladder: buy one, sell two further out
   const a = rnd(5), b = a + 1 + rnd(5 - a), c = b + 1 + rnd(6 - b);
   return cp === 'C'
-    ? mk(K[a] + '/' + K[b] + '/' + K[c] + ' call ladder', [{t:'C',i:a,w:1},{t:'C',i:b,w:-1},{t:'C',i:c,w:-1}])
-    : mk(K[6-a] + '/' + K[6-b] + '/' + K[6-c] + ' put ladder', [{t:'P',i:6-a,w:1},{t:'P',i:6-b,w:-1},{t:'P',i:6-c,w:-1}]);
+    ? mk(e, K[a] + '/' + K[b] + '/' + K[c] + ' call ladder', [{t:'C',i:a,w:1},{t:'C',i:b,w:-1},{t:'C',i:c,w:-1}])
+    : mk(e, K[6-a] + '/' + K[6-b] + '/' + K[6-c] + ' put ladder', [{t:'P',i:6-a,w:1},{t:'P',i:6-b,w:-1},{t:'P',i:6-c,w:-1}]);
 }
+const atmStraddle = () => mk(0, G.ex[0].K[3] + ' straddle', [{t:'C',i:3,w:1},{t:'P',i:3,w:1}]);
+
+/* ---------- sizing ---------- */
 function niceSize(raw){
   const step = raw < 10 ? 1 : raw < 50 ? 5 : raw < 200 ? 10 : raw < 1000 ? 50 : 100;
   return Math.max(step, Math.round(raw / step) * step);
@@ -520,17 +617,14 @@ function quote(inst, q){
 
 /* Sizing rules.
    Edge must be between 0.5 and 2 vega: lots * nu / Q in [0.5, 2].
-   A fill must move the vol by a multiple of 0.05 (0.01 in OEV view, where vegas are derived from rounded OEVs). */
+   In deflection mode a fill must move the vol by a multiple of 0.05 (0.01 in OEV view, where vegas are derived from rounded OEVs). */
 function volGrid(){ return G.oev ? 0.01 : 0.05; }
 function onGrid(inst, lots){
+  if (G.oiv) return true;
   const x = lots * Math.abs(inst.nu) / G.D / volGrid();
   return Math.abs(x - Math.round(x)) < 1e-6;
 }
-function sizeStep(inst){            // smallest lot count that moves the vol by a grid multiple
-  for (let L = 1; L <= 20 * G.D; L++) if (onGrid(inst, L)) return L;
-  return null;
-}
-function sizeRange(inst){           // grid sizes inside the 0.5 to 2 vega edge window
+function sizeRange(inst){           // sizes inside the 0.5 to 2 vega edge window
   const nu = Math.abs(inst.nu), out = [];
   if (nu < 0.05 - 1e-9) return out;
   const lo = Math.max(1, Math.ceil(lotsFor(inst, 0.5 * nu) - 1e-9)), hi = Math.floor(lotsFor(inst, 2 * nu) + 1e-9);
@@ -560,7 +654,7 @@ function newMarket(){
     if (m.bid < 0.01 || r2(m.ask) - r2(m.bid) < 0.02) continue;
     return { kind:'market', inst, q, ...m };
   }
-  const inst = mk(G.K[3] + ' straddle', [{t:'C',i:3,w:1},{t:'P',i:3,w:1}]);
+  const inst = atmStraddle();
   const q = niceSize(G.Q / inst.nu);   // one nu of edge, the same size in both modes
   return { kind:'market', inst, q, ...quote(inst, q) };
 }
@@ -596,20 +690,94 @@ function newSizing(){
   return newMarket();
 }
 
+/* ---------- the session's story ---------- */
+/* The market's vol follows one path per game: a drift with at most one turn, at an uneven pace.
+   f(s) is the move from the starting vol after a fraction s of the session. */
+function makePath(vol0){
+  const amp = Math.max(3, vol0 * (0.12 + 0.18 * Math.random()));
+  const sgn = Math.random() < 0.5 ? 1 : -1;
+  const p1 = 0.5 + 1.5 * Math.random(), p2 = 0.5 + 1.5 * Math.random();
+  const tp = Math.random() < 0.5 ? 1 : 0.45 + 0.35 * Math.random();
+  const back = tp < 1 ? amp * (0.25 + 0.35 * Math.random()) : 0;
+  const f = s => {
+    s = Math.min(1, Math.max(0, s));
+    return s <= tp ? sgn * amp * Math.pow(s / tp, p1) : sgn * (amp - back * Math.pow((s - tp) / (1 - tp), p2));
+  };
+  return { f, dir: s => (s < tp ? sgn : -sgn), tp, sgn };
+}
+const sNow = () => Math.min(1, G.points.length / G.N);
+const star = () => G.vol0 + G.path.f(sNow());
+const refVol = () => G.ref ? G.ref.vol : G.vol0;
+function record(){
+  G.hist.push({ i: G.points.length, star: star(), mine: G.oiv ? refVol() : G.vol });
+}
+function storyText(){
+  const P = G.path, a = G.vol0, top = a + P.f(P.tp), end = a + P.f(1), f1 = x => x.toFixed(1);
+  if (P.tp >= 1) return 'The market vol ' + (P.sgn > 0 ? 'rose' : 'fell') + ' from ' + a + '% to ' + f1(end) + '% over the session.';
+  return 'The market vol ' + (P.sgn > 0 ? 'rose' : 'fell') + ' from ' + a + '% to ' + f1(top) + '% about ' + Math.round(P.tp * 100)
+    + '% of the way through, then turned and ' + (P.sgn > 0 ? 'fell back' : 'recovered') + ' to ' + f1(end) + '%.';
+}
+
+/* ---------- clock ---------- */
+function later(fn, ms){ const g = G; setTimeout(() => { if (G === g && !g.over) fn(); }, ms); }
+function fmtClock(ms){ const s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+function startTimer(){
+  const g = G;
+  g.deadline = Date.now() + 30000 * g.N;
+  g.timerId = setInterval(() => tick(g), 250);
+  $('timer').hidden = false; document.body.classList.add('timing');
+  tick(g);
+}
+function tick(g){
+  if (g !== G || g.over) return;
+  const left = Math.max(0, g.deadline - Date.now()), t = $('timer');
+  t.textContent = fmtClock(left);
+  t.classList.toggle('low', left < 30000);
+  if (left <= 0){ g.timeUp = true; finish(); }
+}
+function stopTimer(){
+  if (G && G.timerId){ clearInterval(G.timerId); G.timerId = null; }
+  $('timer').hidden = true; document.body.classList.remove('timing');
+}
+function finish(){
+  if (G.over) return;
+  G.over = true;
+  G.leftMs = G.timeUp ? 0 : Math.max(0, G.deadline - Date.now());
+  G.bonus = 3 * Math.floor(G.leftMs / 10000);                // 3 points per full 10 seconds left
+  stopTimer();
+  $('overlay').hidden = true; $('dlgBody').innerHTML = '';
+  G.cur = null;
+  renderDone();
+}
+
+/* ---------- game flow ---------- */
 function start(cfg){
-  G = { Q: cfg.Q, D: cfg.D, oev: cfg.oev, quad: cfg.quad, N: cfg.N, step: 0, points: [], kinds: [], pending: null, passed: false, note: '' };
-  Object.assign(G, buildBoard(cfg.oev));
+  if (G) stopTimer();
+  G = { Q: cfg.Q, D: cfg.D, oev: cfg.oev, quad: cfg.quad, oiv: cfg.oiv, two: cfg.two, N: cfg.N,
+        step: 0, points: [], kinds: [], pending: null, passed: false, notes: [], over: false };
+  Object.assign(G, buildGame(cfg.oev, cfg.two));
   G.vol = G.vol0;
+  G.path = makePath(G.vol0);
+  if (G.oiv){
+    G.book = G.ex.map(B => B.K.map(() => ({ C: {}, P: {} })));
+    G.ref = null; G.trades = []; G.made = 0; G.firstBigAt = 1 + rnd(2);
+  }
+  G.hist = [{ i: 0, star: G.vol0, mine: G.vol0 }];
   $('setup').hidden = true; $('game').hidden = false;
-  renderBoard();
+  $('desk').classList.toggle('two', G.two);
+  renderFacts(); renderBoards();
+  startTimer();
   nextStep();
 }
 
 function nextStep(){
+  if (!G || G.over) return;
   G.step++;
   G.tries = 0;
-  if (G.step > G.N){ G.cur = null; renderDone(); return; }
-  if (G.step === 1){
+  if (G.step > G.N){ finish(); return; }
+  if (G.oiv){
+    G.cur = newOiv();
+  } else if (G.step === 1){
     G.cur = { kind:'vol', opener:true, answer: G.vol };
   } else if (G.pending){
     const t = G.pending; G.pending = null;
@@ -624,69 +792,212 @@ function nextStep(){
   renderCard();
 }
 
-/* called once a step is settled (passed or failed) */
+/* called once a deflection step is settled (passed or failed) */
 function settle(pts, userVol){
   const c = G.cur;
   G.points.push(pts); G.kinds.push(c.kind);
-  G.note = '';
+  G.notes = [];
   if (c.kind === 'trade'){
     // carry vol at two decimals; an exact entry is adopted so half-tick ties never drift, anything else snaps to the answer
     G.vol = r2(userVol != null ? userVol : c.answer);
   } else if (c.kind === 'market'){
     if (Math.random() < 0.75){
-      const dv = (G.vol - G.vol0) / G.vol0;
-      const pBuyVega = Math.min(0.85, Math.max(0.15, 0.5 - 1.5 * dv));
+      // customers lean towards the market's story: the further it is above your fair, the more of them buy vega
+      const pBuyVega = 0.5 + 0.4 * Math.tanh((star() - G.vol) / 1.5);
       const buysVega = Math.random() < pBuyVega;
       const side = (buysVega === (c.inst.nu > 0)) ? 'buy' : 'sell';
       G.pending = { inst: c.inst, q: c.q, side, px: side === 'buy' ? r2(c.ask) : r2(c.bid) };
     } else {
       G.passed = true;
-      G.note = 'The customer passed on your ' + c.inst.name + ' market. No trade.';
+      G.notes.push('The customer passed on your ' + c.inst.name + ' market. No trade.');
     }
+  }
+  record();
+}
+
+/* ---------- order implied volatility mode ---------- */
+function newOiv(){
+  for (let n = 0; n < 400; n++){
+    const inst = randomInstrument();
+    const list = sizeRange(inst);
+    if (!list.length) continue;
+    const q = pickSize(list, inst);
+    const P = inst.tv + (refVol() - G.vol0) * inst.nu;
+    if (P - 2 * edgeFor(inst, q) < 0.05) continue;
+    return { kind:'oiv', inst, q };
+  }
+  const inst = atmStraddle();
+  return { kind:'oiv', inst, q: niceSize(G.Q / inst.nu) };
+}
+function pnl(){
+  const mark = refVol();
+  return G.trades.reduce((s, t) => s + t.side * t.q * (t.inst.tv + (mark - G.vol0) * t.inst.nu - t.px), 0);
+}
+/* A sensible market has the width Q asks for (implied vega within 30%) and leaves the latest big order as a hedge. */
+function judgeOiv(c, b, a){
+  const x = c.inst.nu, P = c.inst.tv + (refVol() - G.vol0) * x, m = (a + b) / 2, tol = 0.005 + EPS;
+  const why = [];
+  const rE = widthRel(c.inst, c.q, b, a);
+  if (rE > 0.3 + EPS){
+    why.push('Your width implies ν = ' + num(nuFromEdge((a - b) / 2, c.q)) + ' against the true ' + num(x)
+      + '. For ' + c.q + ' lots the edge is ' + num(edgeFor(c.inst, c.q)) + ' a side.');
+  }
+  if (!G.ref){
+    if (b > P + tol || a < P - tol || Math.abs(m - P) > 0.3 * x + tol)
+      why.push('Before any big order your fair is the board\'s ' + G.vol0 + '% vol, where the ' + c.inst.name + ' is worth ' + f2(P) + '. Centre your market there.');
+  } else if (G.ref.dir > 0){
+    const at = 'the ' + c.inst.name + ' at the big bid\'s ' + G.ref.vol.toFixed(2) + '% vol, ' + f2(P);
+    if (a < P - tol) why.push('Your offer ' + f2(a) + ' is below ' + at + '. Anyone can buy from you and sell to the big bidder.');
+    else if (b > P + tol) why.push('Your bid ' + f2(b) + ' is above ' + at + '. If you are hit you cannot sell on to the big bidder at a profit.');
+    else if (m < P - tol) why.push('Your fair (mid ' + num(m) + ') is below ' + at + '. With a buyer of size there, your fair belongs at or just above it.');
+  } else {
+    const at = 'the ' + c.inst.name + ' at the big offer\'s ' + G.ref.vol.toFixed(2) + '% vol, ' + f2(P);
+    if (b > P + tol) why.push('Your bid ' + f2(b) + ' is above ' + at + '. Anyone can sell to you and buy from the big seller.');
+    else if (a < P - tol) why.push('Your offer ' + f2(a) + ' is below ' + at + '. If you are lifted you cannot buy back from the big seller at a profit.');
+    else if (m > P + tol) why.push('Your fair (mid ' + num(m) + ') is above ' + at + '. With a seller of size there, your fair belongs at or just below it.');
+  }
+  // one sensible market to show after three misses: the right width, centred half an edge past the big order
+  const e = edgeFor(c.inst, c.q), exMid = P + (G.ref ? G.ref.dir : 0) * 0.5 * e;
+  const wide = rE > 0.3 + EPS && (a - b) / 2 > e;
+  return { ok: why.length === 0, why, wide, P, ex: { b: exMid - e, a: exMid + e } };
+}
+function oivTrade(c, custSide, px){
+  G.trades.push({ inst: c.inst, side: custSide === 'buy' ? -1 : 1, q: c.q, px });
+}
+function postBig(c, vol, dir){
+  const turned = !!G.ref && G.ref.dir !== dir;
+  // the latest big customer's orders replace all earlier ones, so the board always shows one reference vol
+  for (const rows of G.book) for (const o of rows){ o.C = {}; o.P = {}; }
+  G.lastBig = G.made;
+  const sz = Math.max(100, niceSize(10 * c.q));
+  // the traded instrument's legs, plus the at-the-money call and put of its expiry
+  const legs = c.inst.legs.concat([{ t:'C', i:3, e:c.inst.e }, { t:'P', i:3, e:c.inst.e }]);
+  for (const l of legs){
+    const B = G.ex[l.e], px = r2((l.t === 'C' ? B.c : B.p)[l.i] + (vol - G.vol0) * B.v[l.i]);
+    if (px < 0.01) continue;
+    const o = G.book[l.e][l.i][l.t];
+    if (dir > 0){ o.bid = px; o.bsz = sz; } else { o.ask = px; o.asz = sz; }
+  }
+  G.ref = { vol, dir };
+  return { turned, sz };
+}
+/* When a big customer arrives, whatever the player quoted.
+   The first comes on market 1 or 2, at 0.5 to 1.5 vol points from the starting vol in the story's first direction.
+   Later ones come once the story has moved at least 0.5 points past the latest big order, and step 0.5 to 1.5 points on. */
+function bigDue(){
+  const r05v = v => Math.round(v * 20) / 20;
+  if (!G.ref) return G.made >= G.firstBigAt ? { dir: G.path.sgn, vol: r05v(G.vol0 + G.path.sgn * (0.5 + Math.random())) } : null;
+  const dir = G.path.dir(sNow()), gap = dir * (star() - G.ref.vol);
+  if (gap < 0.5 || G.made - G.lastBig < 2) return null;     // at least two markets between big customers
+  return { dir, vol: r05v(G.ref.vol + dir * Math.min(1.5, gap)) };
+}
+function outcomeOiv(c, b, a, r){
+  const m = (a + b) / 2, dir = G.path.dir(sNow());
+  const name = c.inst.name, lots = c.q + ' lots';
+  G.made++;
+  const big = bigDue();
+  if (big){
+    // the big customer trades your market on their side if it scored, then leaves size at their own level
+    const px = big.dir > 0 ? a : b, hadRef = !!G.ref;
+    if (r.ok) oivTrade(c, big.dir > 0 ? 'buy' : 'sell', px);
+    const { turned, sz } = postBig(c, big.vol, big.dir);
+    G.notes.push((r.ok
+        ? 'A big customer ' + (big.dir > 0 ? 'lifted your offer' : 'hit your bid') + ' at ' + f2(px) + ' for ' + lots + ' of the ' + name + ', and now '
+        : 'A big customer did not trade on your ' + name + ' market, but now ')
+      + (big.dir > 0 ? 'bids' : 'offers') + ' ' + sz + ' lots in several options. See the orders on the board.'
+      + (turned ? ' The earlier big ' + (big.dir > 0 ? 'offers' : 'bids') + ' have been pulled.' : hadRef ? ' These replace the earlier big orders.' : ''));
+    return;
+  }
+  if (r.wide){
+    // too wide gives a customer nothing to pick off
+    G.notes.push('No one traded on your ' + name + ' market. It was wider than your Q calls for.');
+    return;
+  }
+  if (!r.ok){
+    // any other market that does not make sense is traded on, on the side that hurts
+    let side;
+    if (G.ref && G.ref.dir > 0 && a < r.P) side = 'buy';
+    else if (G.ref && G.ref.dir < 0 && b > r.P) side = 'sell';
+    else if (Math.abs(m - r.P) > 0.005) side = m > r.P ? 'sell' : 'buy';
+    else side = dir > 0 ? 'buy' : 'sell';
+    oivTrade(c, side, side === 'buy' ? a : b);
+    G.notes.push('A customer ' + (side === 'buy' ? 'lifted your offer at ' + f2(a) : 'hit your bid at ' + f2(b)) + ' for ' + lots + ' of the ' + name + '.');
+    return;
+  }
+  if (G.ref && Math.random() < 0.45){
+    // the easy trade: a customer goes against the big flow, and the big order is your hedge
+    const side = G.ref.dir > 0 ? 'sell' : 'buy';
+    oivTrade(c, side, side === 'buy' ? a : b);
+    G.notes.push('A customer ' + (side === 'buy' ? 'lifted your offer at ' + f2(a) : 'hit your bid at ' + f2(b)) + ' for ' + lots + ' of the ' + name
+      + '. The big ' + (G.ref.dir > 0 ? 'bid' : 'offer') + ' is there to hedge against.');
+  } else {
+    G.notes.push('The customer passed on your ' + name + ' market. No trade.');
   }
 }
 
 /* ---------- rendering ---------- */
-function renderBoard(){
-  const facts = [['Sizing', G.quad ? 'Quadratic' : 'Linear'], ['Futures', String(G.F)], ['Days to expiry', String(G.days)], ['Implied vol', G.vol0 + '%']];
-  if (G.oev) facts.push(['ATM straddle ν', f2(G.nuS)]);
-  $('facts').innerHTML =
-    '<div class="fact strong"><span class="label">Q · quote depth</span><span class="num">' + num(G.Q) + '</span></div>'
-    + '<div class="fact strong"><span class="label">D · deflection depth</span><span class="num">' + num(G.D) + '</span></div>'
-    + '<span class="sep" aria-hidden="true"></span>'
-    + facts.map(f => '<div class="fact"><span class="label">' + f[0] + '</span><span class="num">' + f[1] + '</span></div>').join('');
-  let h = '<thead><tr><th>Call</th><th class="k">Strike</th><th>Put</th><th>' + (G.oev ? 'OEV' : 'ν') + '</th></tr></thead><tbody>';
-  for (let i = 0; i < 7; i++){
-    h += '<tr' + (i === 3 ? ' class="atm"' : '') + '><td>' + f2(G.c[i]) + '</td><td class="k">' + G.K[i] + '</td><td>' + f2(G.p[i]) + '</td><td class="g">' + f2(G.shown[i]) + '</td></tr>';
+function renderFacts(){
+  const fact = (l, v, cls) => '<div class="fact' + (cls ? ' ' + cls : '') + '"><span class="label">' + l + '</span><span class="num">' + v + '</span></div>';
+  let h = fact('Q · quote depth', num(G.Q), 'strong');
+  if (!G.oiv) h += fact('D · deflection depth', num(G.D), 'strong');
+  h += '<span class="sep" aria-hidden="true"></span>'
+     + fact('Sizing', G.quad ? 'Quadratic' : 'Linear') + fact('Futures', String(G.F)) + fact('Implied vol', G.vol0 + '%');
+  if (G.oiv){
+    const p = pnl();
+    h += fact('PnL', (p < -0.004 ? '−' : '+') + Math.abs(p).toFixed(2), 'pnl ' + (p > 0.004 ? 'pos' : p < -0.004 ? 'neg' : ''));
   }
-  $('board').innerHTML = h + '</tbody>';
-  $('settingsLine').innerHTML = '<b>Q = <span class="num">' + num(G.Q) + '</span> &nbsp; D = <span class="num">' + num(G.D) + '</span></b> &nbsp; ' + (G.quad ? 'Quadratic sizing' : 'Linear sizing') + ' &nbsp; ' + (G.oev ? 'OEV view' : 'Vega view');
+  $('facts').innerHTML = h;
+  $('settingsLine').innerHTML = '<b>Q = <span class="num">' + num(G.Q) + '</span>' + (G.oiv ? '' : ' &nbsp; D = <span class="num">' + num(G.D) + '</span>') + '</b> &nbsp; '
+    + (G.oiv ? 'Order implied vol' : 'Deflection') + ' &nbsp; ' + (G.quad ? 'Quadratic sizing' : 'Linear sizing') + ' &nbsp; ' + (G.oev ? 'OEV view' : 'Vega view')
+    + (G.two ? ' &nbsp; Two expiries' : '');
 }
+function ordCell(o){
+  const b = o.bid ? '<span class="ob"><sub>(x' + o.bsz + ')</sub>' + f2(o.bid) + '</span>' : '';
+  const a = o.ask ? '<span class="oa">' + f2(o.ask) + '<sub>(x' + o.asz + ')</sub></span>' : '';
+  return '<td class="ord">' + (b && a ? b + ' – ' + a : b ? b + ' –' : a ? '– ' + a : '') + '</td>';
+}
+function renderBoards(){
+  let h = '';
+  G.ex.forEach((B, e) => {
+    h += '<div class="panel bpanel"><div class="bhead"><span>' + (G.two ? 'Expiry ' + (e + 1) : 'Expiry') + '</span><span class="num">' + B.days + ' days</span>'
+       + (G.oev ? '<span>ATM straddle ν <span class="num">' + f2(B.nuS) + '</span></span>' : '') + '</div>'
+       + '<div class="scroll"><table class="board"><thead><tr>' + (G.oiv ? '<th>Call orders</th>' : '')
+       + '<th>Call</th><th class="k">Strike</th><th>Put</th>' + (G.oiv ? '<th>Put orders</th>' : '') + '<th>' + (G.oev ? 'OEV' : 'ν') + '</th></tr></thead><tbody>';
+    for (let i = 0; i < 7; i++){
+      const o = G.oiv ? G.book[e][i] : null;
+      h += '<tr' + (i === 3 ? ' class="atm"' : '') + '>' + (o ? ordCell(o.C) : '') + '<td>' + f2(B.c[i]) + '</td><td class="k">' + B.K[i] + '</td><td>' + f2(B.p[i]) + '</td>'
+         + (o ? ordCell(o.P) : '') + '<td class="g">' + f2(B.shown[i]) + '</td></tr>';
+    }
+    h += '</tbody></table></div></div>';
+  });
+  $('boards').innerHTML = h;
+}
+const perStep = () => G.oiv ? 3 : 9;
 function renderProgress(){
   const total = G.points.reduce((a, b) => a + b, 0);
   $('stepNo').textContent = Math.min(G.step, G.N) + ' / ' + G.N;
-  $('score').textContent = total + ' / ' + (9 * G.points.length);
-  const tier = p => p >= 9 ? 3 : p >= 4 ? 2 : p > 0 ? 1 : 0;
+  $('score').textContent = total + ' / ' + (perStep() * G.points.length);
+  const tier = p => G.oiv ? p : p >= 9 ? 3 : p >= 4 ? 2 : p > 0 ? 1 : 0;
   let h = '';
   for (let i = 0; i < G.N; i++){
     h += '<span class="pip' + (i < G.points.length ? ' p' + tier(G.points[i]) : '') + (i === G.step - 1 && G.cur ? ' now' : '') + '"></span>';
   }
   $('pips').innerHTML = h;
 }
-const KIND = { market:'Market', trade:'Trade', vol:'Vol check', size:'Sizing' };
+const KIND = { market:'Market', trade:'Trade', vol:'Vol check', size:'Sizing', oiv:'Market' };
+const bidAskInputs = '<div class="inputs"><div class="field"><label class="label lbl-bid" for="aBid">Bid</label><input type="text" id="aBid" inputmode="decimal" autocomplete="off"></div>'
+  + '<span class="at">at</span>'
+  + '<div class="field"><label class="label lbl-ask" for="aAsk">Offer</label><input type="text" id="aAsk" inputmode="decimal" autocomplete="off"></div></div>';
 
 function renderCard(){
   renderProgress();
   const c = G.cur;
   let h = '<form id="ans" novalidate style="display:flex;flex-direction:column;gap:14px">';
   h += '<div><span class="kind">' + KIND[c.kind] + '</span></div>';
-  if (G.note && c.kind !== 'trade') h += '<div class="note">' + esc(G.note) + '</div>';
-  if (c.kind === 'market'){
+  if (c.kind !== 'trade') for (const n of G.notes) h += '<div class="note">' + esc(n) + '</div>';
+  if (c.kind === 'market' || c.kind === 'oiv'){
     h += '<p class="ask-text">A customer asks for a two-way market in <b class="num">' + c.q + ' lots</b> of the <b>' + esc(c.inst.name) + '</b>.</p>';
-    h += '<div class="legs">' + esc(legStr(c.inst.legs)) + '</div>';
-    h += '<div class="inputs"><div class="field"><label class="label lbl-bid" for="aBid">Bid</label><input type="text" id="aBid" inputmode="decimal" autocomplete="off"></div>'
-       + '<span class="at">at</span>'
-       + '<div class="field"><label class="label lbl-ask" for="aAsk">Offer</label><input type="text" id="aAsk" inputmode="decimal" autocomplete="off"></div></div>';
+    h += '<div class="legs">' + esc(legStr(c.inst.legs)) + '</div>' + bidAskInputs;
   } else if (c.kind === 'size'){
     h += '<p class="ask-text">A customer wants to <b>' + c.side + '</b> the <b>' + esc(c.inst.name) + '</b> at <b class="num">' + f2(c.px) + '</b>. How many lots will you trade with them?</p>';
     h += '<div class="legs">' + esc(legStr(c.inst.legs)) + '</div>';
@@ -704,11 +1015,11 @@ function renderCard(){
     h += '<div class="inputs"><div class="field"><label class="label" for="aVol">' + (c.kind === 'trade' ? 'New vol fair (%)' : 'Vol fair (%)') + '</label><input type="text" id="aVol" inputmode="decimal" autocomplete="off"></div></div>';
   }
   h += '<div class="rowend"><button class="btn" type="submit">Submit</button>'
-     + '<div class="tries" id="tries" aria-label="attempts left"></div></div>'
-     + '<div class="feedback" id="fb" role="status"></div></form>';
+     + '<div class="tries" id="tries" aria-label="attempts left"></div>'
+     + '</div><div class="feedback" id="fb" role="status"></div></form>';
   $('card').innerHTML = h;
   renderTries();
-  $('ans').addEventListener('submit', onSubmit);
+  $('ans').addEventListener('submit', c.kind === 'oiv' ? onSubmitOiv : onSubmit);
   const first = $('card').querySelector('input');
   if (first && !$('practise').hidden) first.focus();
 }
@@ -723,45 +1034,89 @@ function parse(id){
   return parseFloat(s);
 }
 const close = (a, b) => Math.abs(a - b) <= 0.005 + EPS;
-/* Accuracy multiplier: 3 exact, 2 or 1 for near answers, 0 outside every band. */
-function band(err, b2, b1){ return err <= 0.005 + EPS ? 3 : err <= b2 + EPS ? 2 : err <= b1 + EPS ? 1 : 0; }
+
+/* ---------- scoring by implied vega ---------- */
+/* Each answer is worked back to the vega that would make it exactly right (allowing half a tick of rounding).
+   Within 10% of the true vega scores 3x, 20% 2x, 30% 1x. */
+const bandOf = rel => rel <= 0.1 + EPS ? 3 : rel <= 0.2 + EPS ? 2 : rel <= 0.3 + EPS ? 1 : 0;
+function relDist(lo, hi, target){           // how far target sits outside [lo, hi], relative to target
+  if (lo > hi){ const t = lo; lo = hi; hi = t; }
+  const d = target < lo ? lo - target : target > hi ? target - hi : 0;
+  return d / Math.abs(target);
+}
+function nuFromEdge(edge, q){               // |nu| for which `edge` is the right half-width for q lots
+  edge = Math.max(0, edge);
+  return G.quad ? Math.pow(edge / Math.sqrt(q / G.Q), 2 / 3) : Math.sqrt(edge * G.Q / q);
+}
+function widthRel(inst, q, b, a){
+  const h = (a - b) / 2;
+  return relDist(nuFromEdge(h - 0.005, q), nuFromEdge(h + 0.005, q), Math.abs(inst.nu));
+}
+function marketRel(c, b, a){
+  if (a <= b) return Infinity;
+  const dv = G.vol - G.vol0, m = (a + b) / 2;
+  const rWidth = widthRel(c.inst, c.q, b, a);
+  // the centre is fair = board value + dv * nu, so it implies nu too unless the vol has not moved
+  const rMid = Math.abs(dv) < 1e-9
+    ? (Math.abs(m - c.inst.tv) <= 0.005 + EPS ? 0 : Infinity)
+    : relDist((m - 0.005 - c.inst.tv) / dv, (m + 0.005 - c.inst.tv) / dv, c.inst.nu);
+  return Math.max(rWidth, rMid);
+}
+function sizeRel(c, L){
+  if (c.answer === 0) return L === 0 ? 0 : Infinity;
+  if (L === 0) return Infinity;
+  const e = c.edge;
+  const nuOf = n => G.quad ? Math.cbrt(G.Q * e * e / n) : Math.sqrt(e * G.Q / n);
+  return relDist(nuOf(L + 1), nuOf(L), Math.abs(c.inst.nu));   // whole lots are rounded down, so L covers [L, L + 1)
+}
+function tradeRel(c, v){
+  const k = (c.side === 'buy' ? 1 : -1) * c.q / G.D;           // vol move per unit of nu
+  return relDist((v - 0.005 - G.vol) / k, (v + 0.005 - G.vol) / k, c.inst.nu);
+}
+function volBand(err){ return err <= 0.005 + EPS ? 3 : err <= 0.1 + EPS ? 2 : err <= 0.3 + EPS ? 1 : 0; }
 
 function onSubmit(ev){
   ev.preventDefault();
   const c = G.cur, fb = $('fb');
-  let mult, userVol = null;
+  let mult, exact, userVol = null;
   if (c.kind === 'market'){
     const b = parse('aBid'), a = parse('aAsk');
     if (b === null || a === null){ fb.className = 'feedback bad'; fb.textContent = 'Enter a bid and an offer as numbers, for example 9.50 and 10.50.'; return; }
-    const x = Math.abs(c.inst.nu);
-    mult = band(Math.max(Math.abs(b - c.bid), Math.abs(a - c.ask)), x / 4, x / 2);
+    exact = close(b, c.bid) && close(a, c.ask);
+    mult = exact ? 3 : bandOf(marketRel(c, b, a));
   } else if (c.kind === 'size'){
     const v = parse('aLots');
     if (v === null || v < 0 || Math.abs(v - Math.round(v)) > 1e-9){ fb.className = 'feedback bad'; fb.textContent = 'Enter a whole number of lots, or 0 if you will not trade.'; return; }
-    const L = Math.round(v), rel = c.answer === 0 ? Infinity : Math.abs(L - c.answer) / c.answer;
-    mult = L === c.answer ? 3 : rel <= 0.1 + EPS ? 2 : rel <= 0.2 + EPS ? 1 : 0;
+    const L = Math.round(v);
+    exact = L === c.answer;
+    mult = exact ? 3 : bandOf(sizeRel(c, L));
   } else {
     const v = parse('aVol');
     if (v === null){ fb.className = 'feedback bad'; fb.textContent = 'Enter the vol in points, for example 24.60.'; return; }
-    mult = band(Math.abs(v - c.answer), 0.1, 0.3); userVol = v;
+    exact = close(v, c.answer);
+    mult = exact ? 3 : c.kind === 'trade' ? bandOf(tradeRel(c, v)) : volBand(Math.abs(v - c.answer));
+    userVol = v;
   }
   G.tries++;
   renderTries();
   const pts = mult * (4 - G.tries);
-  if (mult === 3){
+  if (exact){
     settle(pts, userVol);
     fb.className = 'feedback good';
     fb.textContent = 'Exact. 3× multiplier, +' + pts + ' points';
     $('ans').querySelectorAll('input,button').forEach(e => e.disabled = true);
     renderProgress();
-    setTimeout(nextStep, 650);
+    later(nextStep, 650);
   } else if (mult > 0 || G.tries >= 3){
-    // near answer or out of attempts: show the exact answer and resync the vol fair to it
+    // scoring but not exact, or out of attempts: show the exact answer and resync the vol fair to it
     const body = failHelp(c);
     settle(pts, null);
     $('ans').querySelectorAll('input,button').forEach(e => e.disabled = true);
     renderProgress();
-    $('dlgTitle').textContent = mult > 0 ? 'Close: ' + mult + '× multiplier, +' + pts + (pts === 1 ? ' point' : ' points') : 'Out of attempts';
+    const pl = ', +' + pts + (pts === 1 ? ' point' : ' points');
+    $('dlgTitle').textContent = mult === 0 ? 'Out of attempts'
+      : c.kind === 'vol' ? 'Close: ' + mult + '× multiplier' + pl
+      : 'Within ' + [0, 30, 20, 10][mult] + '% of ν: ' + mult + '× multiplier' + pl;
     $('overlay').querySelector('.dialog').classList.toggle('near', mult > 0);
     $('dlgBody').innerHTML = body + '<div class="volnow"><span class="label">Your vol fair is now</span><br><span class="num">' + f2(G.vol) + '%</span></div>';
     $('overlay').hidden = false;
@@ -775,9 +1130,51 @@ function onSubmit(ev){
   }
 }
 
+function onSubmitOiv(ev){
+  ev.preventDefault();
+  const c = G.cur, fb = $('fb');
+  const b = parse('aBid'), a = parse('aAsk');
+  if (b === null || a === null){ fb.className = 'feedback bad'; fb.textContent = 'Enter a bid and an offer as numbers, for example 9.50 and 10.50.'; return; }
+  if (a <= b){ fb.className = 'feedback bad'; fb.textContent = 'The offer must be above the bid.'; return; }
+  const r = judgeOiv(c, b, a);
+  G.tries++;
+  renderTries();
+  if (!r.ok && G.tries < 3){
+    const left = 3 - G.tries;
+    fb.className = 'feedback bad';
+    fb.textContent = 'Not sensible. ' + r.why[0] + ' ' + left + (left === 1 ? ' attempt left.' : ' attempts left.');
+    const f = $('ans'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake');
+    $('aBid').select();
+    return;
+  }
+  // sensible on the first, second or third try scores 3, 2 or 1; the market that stands is the one just submitted
+  const pts = r.ok ? 4 - G.tries : 0;
+  G.points.push(pts); G.kinds.push('oiv');
+  G.notes = [];
+  outcomeOiv(c, b, a, r);
+  record();
+  renderFacts(); renderBoards();
+  $('ans').querySelectorAll('input,button').forEach(e => e.disabled = true);
+  renderProgress();
+  if (r.ok){
+    fb.className = 'feedback good';
+    fb.textContent = 'Sensible market. 3 points for the first try, 2 for the second, 1 for the third: +' + pts + (pts === 1 ? ' point' : ' points');
+    later(nextStep, 900);
+    return;
+  }
+  $('dlgTitle').textContent = 'Out of attempts';
+  $('overlay').querySelector('.dialog').classList.remove('near');
+  $('dlgBody').innerHTML = '<div><div class="label">Why your last market was not sensible</div><p>' + esc(r.why[0]) + '</p></div>'
+    + '<div><div class="label">A sensible market in ' + c.q + ' lots of the ' + esc(c.inst.name) + '</div><div class="ans">' + f2(r.ex.b) + ' at ' + f2(r.ex.a) + '</div></div>'
+    + '<div class="volnow"><span class="label">What happened</span><br>' + esc(G.notes.join(' ')) + '</div>';
+  $('overlay').hidden = false;
+  $('dlgClose').focus();
+}
+
 function nuLine(inst){
   if (!G.oev) return 'ν = ' + num(inst.nu);
-  return 'ν = OEV ' + num(inst.nu / G.nuS) + ' × ' + f2(G.nuS) + ' = ' + num(inst.nu);
+  const nuS = G.ex[inst.e].nuS;
+  return 'ν = OEV ' + num(inst.nu / nuS) + ' × ' + f2(nuS) + ' = ' + num(inst.nu);
 }
 function failHelp(c){
   const lines = [];
@@ -797,11 +1194,10 @@ function failHelp(c){
     ans = c.answer + (c.answer === 1 ? ' lot' : ' lots');
     lines.push(nuLine(c.inst));
     lines.push('fair = ' + f2(c.inst.tv) + ' + (' + f2(G.vol) + ' − ' + G.vol0 + ') × ' + pn(c.inst.nu) + ' = ' + num(c.fair));
+    lines.push('your edge = ' + (c.side === 'sell' ? num(c.fair) + ' − ' + f2(c.px) : f2(c.px) + ' − ' + num(c.fair)) + ' = ' + num(c.edge));
     if (c.answer === 0){
-      lines.push('your edge = ' + (c.side === 'sell' ? num(c.fair) + ' − ' + f2(c.px) : f2(c.px) + ' − ' + num(c.fair)) + ' = ' + num(c.edge));
       lines.push('no edge against your fair, so trade 0 lots');
     } else {
-      lines.push('your edge = ' + (c.side === 'sell' ? num(c.fair) + ' − ' + f2(c.px) : f2(c.px) + ' − ' + num(c.fair)) + ' = ' + num(c.edge));
       lines.push(G.quad
         ? 'lots = ' + num(G.Q) + ' × (' + num(c.edge) + ' / ' + num(Math.abs(c.inst.nu)) + ')² / ' + num(Math.abs(c.inst.nu)) + ' = ' + num(lotsFor(c.inst, c.edge))
         : 'lots = ' + num(c.edge) + ' × ' + num(G.Q) + ' / ' + pn(c.inst.nu) + '² = ' + num(lotsFor(c.inst, c.edge)));
@@ -826,30 +1222,92 @@ function closeDialog(){
   if ($('overlay').hidden) return;
   $('overlay').hidden = true;
   $('dlgBody').innerHTML = '';
-  nextStep();
+  if (G && !G.over) nextStep();
 }
 $('dlgClose').onclick = closeDialog;
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDialog(); });
 
+/* ---------- end of game ---------- */
+function chartHTML(){
+  const H = G.hist, N = G.N, W = 560, Ht = 240, L = 58, R = 14, T = 12, B = 32;
+  const vals = H.flatMap(h => [h.star, h.mine]);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const st = [0.5, 1, 2, 5, 10].find(s => Math.max(1, hi - lo) / s <= 5) || 10;
+  lo = Math.floor(lo / st) * st; hi = Math.ceil(hi / st) * st;
+  if (hi - lo < st) hi = lo + st;
+  const X = i => L + i / N * (W - L - R), Y = v => T + (hi - v) / (hi - lo) * (Ht - T - B);
+  let g = '';
+  for (let v = lo; v <= hi + 1e-9; v += st){
+    g += '<line class="gl" x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(v).toFixed(1) + '" y2="' + Y(v).toFixed(1) + '"/>'
+       + '<text x="' + (L - 6) + '" y="' + (Y(v) + 4).toFixed(1) + '" text-anchor="end">' + (+v.toFixed(1)) + '%</text>';
+  }
+  for (const i of [0, Math.round(N / 2), N]) g += '<text x="' + X(i).toFixed(1) + '" y="' + (Ht - 8) + '" text-anchor="middle">step ' + i + '</text>';
+  const mkt = H.map((h, k) => (k ? 'L' : 'M') + X(h.i).toFixed(1) + ' ' + Y(h.star).toFixed(1)).join(' ');
+  let mine = 'M' + X(H[0].i).toFixed(1) + ' ' + Y(H[0].mine).toFixed(1);
+  for (let k = 1; k < H.length; k++) mine += ' H' + X(H[k].i).toFixed(1) + ' V' + Y(H[k].mine).toFixed(1);   // step line: your vol holds between steps
+  const last = H[H.length - 1];
+  const mineLabel = G.oiv ? 'Vol of the latest big order' : 'Your vol fair';
+  G.chart = { W, L, R, N, X, Y, mineLabel };
+  return '<div class="chart"><div class="label">Market vol and ' + mineLabel.toLowerCase() + ', by step</div>'
+    + '<div class="legend"><span><span class="sw dash"></span>Market vol (the story)</span><span><span class="sw"></span>' + mineLabel + '</span></div>'
+    + '<div class="chartbox" id="chartBox"><svg viewBox="0 0 ' + W + ' ' + Ht + '" role="img" aria-label="Line chart of the market vol path against ' + mineLabel.toLowerCase() + ' over the session">'
+    + g + '<path class="mkt" d="' + mkt + '"/><path class="mine" d="' + mine + '"/>'
+    + '<circle class="dot" cx="' + X(last.i).toFixed(1) + '" cy="' + Y(last.mine).toFixed(1) + '" r="4"/>'
+    + '<line class="ch" id="chX" y1="' + T + '" y2="' + (Ht - B) + '" x1="0" x2="0" visibility="hidden"/></svg>'
+    + '<div class="tip" id="chTip" hidden></div></div></div>';
+}
+function wireChart(){
+  const box = $('chartBox'); if (!box) return;
+  const svg = box.querySelector('svg'), line = $('chX'), tip = $('chTip'), C = G.chart, H = G.hist;
+  svg.addEventListener('pointermove', ev => {
+    const rect = svg.getBoundingClientRect(), sx = (ev.clientX - rect.left) * C.W / rect.width;
+    const i = Math.round((sx - C.L) / (C.W - C.L - C.R) * C.N);
+    let h = H[0];
+    for (const x of H) if (Math.abs(x.i - i) < Math.abs(h.i - i)) h = x;
+    const x = C.X(h.i);
+    line.setAttribute('x1', x); line.setAttribute('x2', x); line.setAttribute('visibility', 'visible');
+    tip.hidden = false;
+    tip.textContent = 'Step ' + h.i + ' · market ' + h.star.toFixed(2) + '% · ' + (G.oiv ? 'big order ' : 'you ') + h.mine.toFixed(2) + '%';
+    tip.style.left = Math.min(Math.max(x / C.W * rect.width, 90), rect.width - 90) + 'px';
+  });
+  svg.addEventListener('pointerleave', () => { line.setAttribute('visibility', 'hidden'); tip.hidden = true; });
+}
 function renderDone(){
   renderProgress();
-  const total = G.points.reduce((a, b) => a + b, 0), max = 9 * G.N;
-  let rows = '';
-  for (const k of ['market', 'size', 'trade', 'vol']){
-    const idx = G.kinds.map((x, i) => x === k ? i : -1).filter(i => i >= 0);
-    if (!idx.length) continue;
-    const pts = idx.reduce((a, i) => a + G.points[i], 0);
-    const first = idx.filter(i => G.points[i] === 9).length, miss = idx.filter(i => G.points[i] === 0).length;
-    rows += '<tr><td>' + KIND[k] + '</td><td class="num">' + idx.length + '</td><td class="num">' + first + '</td><td class="num">' + miss + '</td><td class="num">' + pts + ' / ' + 9 * idx.length + '</td></tr>';
+  const earned = G.points.reduce((a, b) => a + b, 0), total = earned + G.bonus, max = perStep() * G.N;
+  let rows = '', head;
+  if (G.oiv){
+    const ok = G.points.filter(p => p > 0).length, p = pnl();
+    head = '<tr><th>Measure</th><th>Value</th></tr>';
+    rows = '<tr><td>Markets made</td><td class="num">' + G.points.length + '</td></tr>'
+         + '<tr><td>Sensible markets</td><td class="num">' + ok + '</td></tr>'
+         + '<tr><td>Sensible on the first try</td><td class="num">' + G.points.filter(p => p === 3).length + '</td></tr>'
+         + '<tr><td>Trades</td><td class="num">' + G.trades.length + '</td></tr>'
+         + '<tr><td>PnL at ' + refVol().toFixed(2) + '% vol</td><td class="num">' + (p < -0.004 ? '−' : '+') + Math.abs(p).toFixed(2) + '</td></tr>';
+  } else {
+    head = '<tr><th>Step type</th><th>Steps</th><th>Perfect (9)</th><th>Missed</th><th>Points</th></tr>';
+    for (const k of ['market', 'size', 'trade', 'vol']){
+      const idx = G.kinds.map((x, i) => x === k ? i : -1).filter(i => i >= 0);
+      if (!idx.length) continue;
+      const pts = idx.reduce((a, i) => a + G.points[i], 0);
+      const first = idx.filter(i => G.points[i] === 9).length, miss = idx.filter(i => G.points[i] === 0).length;
+      rows += '<tr><td>' + KIND[k] + '</td><td class="num">' + idx.length + '</td><td class="num">' + first + '</td><td class="num">' + miss + '</td><td class="num">' + pts + ' / ' + 9 * idx.length + '</td></tr>';
+    }
   }
-  $('card').innerHTML = '<div class="summary"><div><span class="kind">Finished</span></div>'
-    + '<div><div class="big">' + total + ' / ' + max + '</div><div class="muted">' + Math.round(100 * total / max) + '% of available points</div></div>'
-    + '<div class="scroll"><table class="ex"><thead><tr><th>Step type</th><th>Steps</th><th>Perfect (9)</th><th>Missed</th><th>Points</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
-    + '<p>Final vol fair: <span class="num">' + f2(G.vol) + '%</span> (started at <span class="num">' + G.vol0 + '%</span>).</p>'
+  const clock = G.timeUp
+    ? 'Time ran out after ' + G.points.length + ' of ' + G.N + ' steps.'
+    : earned + ' from steps + ' + G.bonus + ' time bonus (' + Math.floor(G.leftMs / 1000) + ' s left).';
+  $('card').innerHTML = '<div class="summary"><div><span class="kind">' + (G.timeUp ? 'Time\'s up' : 'Finished') + '</span></div>'
+    + '<div><div class="big">' + total + '</div><div class="muted">' + clock + ' Steps alone pay up to ' + max + '.</div></div>'
+    + '<div class="scroll"><table class="ex"><thead>' + head + '</thead><tbody>' + rows + '</tbody></table></div>'
+    + '<p>' + esc(storyText()) + '</p>'
+    + chartHTML()
+    + (G.oiv ? '' : '<p>Final vol fair: <span class="num">' + f2(G.vol) + '%</span> (started at <span class="num">' + G.vol0 + '%</span>).</p>')
     + '<div><button class="btn" type="button" id="againBtn">Play again</button></div></div>';
+  wireChart();
   $('againBtn').onclick = toSetup;
 }
-function toSetup(){ G = null; rollQD(); validate(); $('game').hidden = true; $('setup').hidden = false; $('overlay').hidden = true; }
+function toSetup(){ stopTimer(); G = null; rollQD(); syncMode(); $('game').hidden = true; $('setup').hidden = false; $('overlay').hidden = true; }
 $('quitBtn').onclick = toSetup;
 
 /* ---------- setup ---------- */
@@ -861,25 +1319,30 @@ function rollQD(){
   $('inQ').value = Q; $('inD').value = D;
 }
 function validate(){
+  const oiv = $('inOiv').checked;
   const Q = parseFloat($('inQ').value), D = parseFloat($('inD').value);
   let msg = '';
-  if (!(Q > 0) || !(D > 0)) msg = 'Q and D must both be positive numbers.';
-  else if (D <= Q) msg = 'D must be larger than Q, otherwise every fill moves your fair through the trade price.';
+  if (!(Q > 0)) msg = 'Q must be a positive number.';
+  else if (!oiv && !(D > 0)) msg = 'D must be a positive number.';
+  else if (!oiv && D <= Q) msg = 'D must be larger than Q, otherwise every fill moves your fair through the trade price.';
   $('setupErr').textContent = msg;
   $('startBtn').disabled = !!msg;
-  return msg ? null : { Q, D };
+  return msg ? null : { Q, D, oiv };
 }
+function syncMode(){ $('inD').disabled = $('inOiv').checked; validate(); }
 $('rerollBtn').onclick = () => { rollQD(); validate(); };
 $('inQ').addEventListener('input', validate);
 $('inD').addEventListener('input', validate);
+$('inDefl').addEventListener('change', syncMode);
+$('inOiv').addEventListener('change', syncMode);
 $('setup').addEventListener('submit', e => {
   e.preventDefault();
   const v = validate();
-  if (v) start({ Q: v.Q, D: v.D, oev: $('inOev').checked, quad: $('inQuad').checked, N: parseInt($('inSteps').value, 10) });
+  if (v) start({ Q: v.Q, D: v.D, oiv: v.oiv, oev: $('inOev').checked, quad: $('inQuad').checked, two: $('inTwo').checked, N: parseInt($('inSteps').value, 10) });
 });
 $('stepsOut').textContent = $('inSteps').value;
 rollQD();
-validate();
+syncMode();
 })();
 </script>
 </body></html>
